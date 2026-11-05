@@ -1,1 +1,19 @@
 .openidea/*
+
+# Build output (make build / make clean)
+/bin/
+
+# Go test artifacts
+*.test
+*.out
+coverage.*
+
+# Environment / secrets
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

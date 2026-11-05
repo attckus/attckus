@@ -12,7 +12,7 @@ It tests the **system around the model**: tools, permissions, and behaviour when
 
 Go, standard library only. Tests run against your test environment; nothing has to sit in front of production.
 
-> Status: early. Everything below works and is tested. The gateways can also run as an always-on production proxy (`groot gateway`), but that mode is a preview, parked until test users ask for it. See [PLAN.md](PLAN.md) and [docs/design.md](docs/design.md).
+> Status: early. Everything below works and is tested. The gateways can also run as an always-on production proxy (`groot gateway`), but that mode is a preview, parked until test users ask for it. See [PLAN.md](PLAN.md) and [docs/design](docs/design/README.md).
 
 ## Quick start
 
