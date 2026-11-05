@@ -1,0 +1,55 @@
+{
+  "RoleDetailList": [
+    {
+      "RoleName": "support-agent-role",
+      "Arn": "arn:aws:iam::111122223333:role/support-agent-role",
+      "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow",
+        "Principal": {"Federated": "arn:aws:iam::111122223333:oidc-provider/oidc.eks.ap-south-1.amazonaws.com/id/EXAMPLE"},
+        "Action": "sts:AssumeRoleWithWebIdentity"}]},
+      "RolePolicyList": [
+        {"PolicyName": "orders-access", "PolicyDocument": {"Version": "2012-10-17", "Statement": [
+          {"Sid": "Orders", "Effect": "Allow", "Action": "s3:*",
+           "Resource": ["arn:aws:s3:::orders-prod", "arn:aws:s3:::orders-prod/*"]},
+          {"Sid": "Secrets", "Effect": "Allow", "Action": "secretsmanager:GetSecretValue", "Resource": "*"},
+          {"Sid": "Escalate", "Effect": "Allow", "Action": "sts:AssumeRole", "Resource": "arn:aws:iam::111122223333:role/ops-*"}
+        ]}}
+      ],
+      "AttachedManagedPolicies": [],
+      "Tags": [{"Key": "team", "Value": "support"}]
+    },
+    {
+      "RoleName": "ops-admin",
+      "Arn": "arn:aws:iam::111122223333:role/ops-admin",
+      "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow",
+        "Principal": {"AWS": ["arn:aws:iam::111122223333:role/support-agent-role", "arn:aws:iam::111122223333:role/oncall"]},
+        "Action": "sts:AssumeRole"}]},
+      "RolePolicyList": [],
+      "AttachedManagedPolicies": [{"PolicyName": "AdministratorAccess", "PolicyArn": "arn:aws:iam::aws:policy/AdministratorAccess"}],
+      "Tags": []
+    },
+    {
+      "RoleName": "report-writer-role",
+      "Arn": "arn:aws:iam::111122223333:role/report-writer-role",
+      "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow",
+        "Principal": {"Federated": "arn:aws:iam::111122223333:oidc-provider/oidc.eks.ap-south-1.amazonaws.com/id/EXAMPLE"},
+        "Action": "sts:AssumeRoleWithWebIdentity"}]},
+      "RolePolicyList": [],
+      "AttachedManagedPolicies": [{"PolicyName": "analytics-read", "PolicyArn": "arn:aws:iam::111122223333:policy/analytics-read"}],
+      "Tags": []
+    }
+  ],
+  "Policies": [
+    {
+      "PolicyName": "analytics-read",
+      "Arn": "arn:aws:iam::111122223333:policy/analytics-read",
+      "DefaultVersionId": "v1",
+      "PolicyVersionList": [{"VersionId": "v1", "IsDefaultVersion": true, "Document": {"Version": "2012-10-17", "Statement": [
+        {"Effect": "Allow", "Action": ["s3:GetObject", "s3:ListBucket"],
+         "Resource": ["arn:aws:s3:::analytics-reports", "arn:aws:s3:::analytics-reports/*"],
+         "Condition": {"StringEquals": {"aws:PrincipalTag/team": "analytics"}}}
+      ]}}]
+    }
+  ],
+  "UserDetailList": [],
+  "GroupDetailList": []
+}

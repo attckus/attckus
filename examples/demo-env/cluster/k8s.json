@@ -1,0 +1,57 @@
+{
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+    {
+      "apiVersion": "apps/v1", "kind": "Deployment",
+      "metadata": {"name": "support-bot", "namespace": "support"},
+      "spec": {"replicas": 2, "template": {"spec": {
+        "serviceAccountName": "support-bot",
+        "containers": [{"name": "bot", "image": "registry.example.com/support-bot:1.4.0",
+          "env": [{"name": "OPENAI_API_KEY", "valueFrom": {"secretKeyRef": {"name": "llm-keys", "key": "openai"}}}]}]
+      }}}
+    },
+    {
+      "apiVersion": "apps/v1", "kind": "Deployment",
+      "metadata": {"name": "report-writer", "namespace": "analytics"},
+      "spec": {"template": {"spec": {
+        "serviceAccountName": "report-writer",
+        "automountServiceAccountToken": false,
+        "containers": [{"name": "writer", "image": "registry.example.com/report-writer:0.9.1",
+          "env": [{"name": "ANTHROPIC_API_KEY", "valueFrom": {"secretKeyRef": {"name": "llm-keys", "key": "anthropic"}}}]}]
+      }}}
+    },
+    {
+      "apiVersion": "apps/v1", "kind": "Deployment",
+      "metadata": {"name": "checkout", "namespace": "shop"},
+      "spec": {"template": {"spec": {"serviceAccountName": "checkout", "containers": [{"name": "app", "image": "checkout:2"}]}}}
+    },
+    {
+      "apiVersion": "v1", "kind": "ServiceAccount",
+      "metadata": {"name": "support-bot", "namespace": "support",
+        "annotations": {"eks.amazonaws.com/role-arn": "arn:aws:iam::111122223333:role/support-agent-role"}}
+    },
+    {
+      "apiVersion": "v1", "kind": "ServiceAccount",
+      "metadata": {"name": "report-writer", "namespace": "analytics",
+        "annotations": {"eks.amazonaws.com/role-arn": "arn:aws:iam::111122223333:role/report-writer-role"}}
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role",
+      "metadata": {"name": "secret-reader", "namespace": "support"},
+      "rules": [{"apiGroups": [""], "resources": ["secrets"], "verbs": ["get", "list"]}]
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1", "kind": "RoleBinding",
+      "metadata": {"name": "support-bot-secrets", "namespace": "support"},
+      "roleRef": {"apiGroup": "rbac.authorization.k8s.io", "kind": "Role", "name": "secret-reader"},
+      "subjects": [{"kind": "ServiceAccount", "name": "support-bot", "namespace": "support"}]
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1", "kind": "ClusterRoleBinding",
+      "metadata": {"name": "checkout-admin"},
+      "roleRef": {"apiGroup": "rbac.authorization.k8s.io", "kind": "ClusterRole", "name": "cluster-admin"},
+      "subjects": [{"kind": "ServiceAccount", "name": "checkout", "namespace": "shop"}]
+    }
+  ]
+}

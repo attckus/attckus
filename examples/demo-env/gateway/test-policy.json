@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "mode": "enforce",
+  "default": "allow",
+  "rules": [
+    {"name": "no deletes", "tool": "delete_*", "action": "deny", "reason": "destructive tools are denied"},
+    {"name": "no command or SQL execution", "tool": "*exec*", "action": "deny", "reason": "agents may not run arbitrary commands or SQL"}
+  ],
+  "tool_checks": {"flag_injection": true, "alert_on_change": true}
+}

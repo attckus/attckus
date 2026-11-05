@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "analytics-db": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres@0.6.2", "postgresql://readonly@analytics-db:5432/analytics"]
+    }
+  }
+}

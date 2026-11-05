@@ -1,0 +1,64 @@
+name: groot
+description: Security and resilience tests for AI agents (groot test), plus a blast-radius scan reported to GitHub code scanning.
+branding:
+  icon: shield
+  color: red
+inputs:
+  suite:
+    description: groot test suite file. When set, the job fails if any scenario fails.
+    default: ""
+  path:
+    description: Directory to scan (repo root by default). Put kubectl and IAM JSON exports here to resolve identities.
+    default: "."
+  fail-on:
+    description: Fail the job at this severity or above (critical, high, medium, low, none).
+    default: critical
+  upload-sarif:
+    description: Upload results to GitHub code scanning (needs security-events write permission).
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v5
+      with: {go-version: "1.24"}
+    - name: Build groot
+      shell: bash
+      run: go build -o "$RUNNER_TEMP/groot" "$GITHUB_ACTION_PATH/cmd/groot"
+      working-directory: ${{ github.action_path }}
+    - name: Test
+      id: test
+      if: inputs.suite != ''
+      shell: bash
+      run: |
+        set +e
+        "$RUNNER_TEMP/groot" test --suite "${{ inputs.suite }}" --format junit --out "$RUNNER_TEMP/groot-runs" \
+          > "$RUNNER_TEMP/groot-junit.xml" 2> "$RUNNER_TEMP/groot-progress.txt"
+        echo "exit=$?" >> "$GITHUB_OUTPUT"
+        { echo '### groot test'; echo '```'; cat "$RUNNER_TEMP/groot-progress.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+    - name: Upload test evidence
+      if: inputs.suite != '' && always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: groot-test-evidence
+        path: |
+          ${{ runner.temp }}/groot-junit.xml
+          ${{ runner.temp }}/groot-runs
+    - name: Scan
+      id: scan
+      shell: bash
+      run: |
+        set +e
+        "$RUNNER_TEMP/groot" scan --format sarif --fail-on "${{ inputs.fail-on }}" "${{ inputs.path }}" > "$RUNNER_TEMP/groot.sarif"
+        echo "exit=$?" >> "$GITHUB_OUTPUT"
+        "$RUNNER_TEMP/groot" scan --fail-on none "${{ inputs.path }}" >> "$GITHUB_STEP_SUMMARY" || true
+    - name: Upload SARIF
+      if: inputs.upload-sarif == 'true'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ runner.temp }}/groot.sarif
+        category: groot
+    - name: Enforce results
+      shell: bash
+      run: |
+        [ "${{ steps.test.outputs.exit || 0 }}" = "0" ] || { echo "groot test failed"; exit 1; }
+        exit ${{ steps.scan.outputs.exit }}
