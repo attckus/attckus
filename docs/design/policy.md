@@ -1,3 +1,9 @@
+---
+title: groot policy
+parent: Design
+nav_order: 5
+---
+
 # groot policy
 
 ```

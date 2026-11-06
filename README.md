@@ -29,6 +29,7 @@ Groot tests the **system around the model**: the tools, the permissions, and how
 - `groot scan` works **offline**. It reads files you export; it never needs cloud credentials or network access.
 - Supported today: AWS and Kubernetes for permissions; MCP tools and the Anthropic and OpenAI APIs for tests.
 - Status: early. Everything described here works and has tests. See [PLAN.md](PLAN.md) for what comes next, and [docs/design](docs/design/README.md) for how it works inside.
+- **Documentation:** the full user guide (getting started, step-by-step guides, reference, troubleshooting) is at **[mohitkumar.github.io/groot](https://mohitkumar.github.io/groot/)**, built from the [`docs/`](docs/) folder.
 
 ## Words used in this README
 

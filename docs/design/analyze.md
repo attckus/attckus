@@ -1,3 +1,9 @@
+---
+title: groot analyze
+parent: Design
+nav_order: 4
+---
+
 # groot analyze
 
 ```

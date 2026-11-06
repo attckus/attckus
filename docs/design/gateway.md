@@ -1,3 +1,9 @@
+---
+title: Test go-betweens
+parent: Design
+nav_order: 6
+---
+
 # The go-betweens used during a test
 
 To test an agent without changing it, `groot test` puts a go-between (a proxy) between the agent and everything it talks to. The go-betweens:

@@ -1,3 +1,9 @@
+---
+title: The HTML report
+parent: Design
+nav_order: 3
+---
+
 # The HTML report
 
 ```

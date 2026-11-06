@@ -1,8 +1,15 @@
+---
+title: Design
+nav_order: 7
+has_children: true
+permalink: /design/
+---
+
 # How Groot works
 
 This folder explains how Groot works inside: what each command is for, how it is built, what data flows through it, where the code lives, and what happens when something goes wrong. It is written for contributors and for anyone who wants to trust the results enough to act on them.
 
-If you only want to use Groot, start with the [README](../../README.md).
+If you only want to use Groot, start with the [User guide](../guide/index.md).
 
 ## The three questions Groot answers
 

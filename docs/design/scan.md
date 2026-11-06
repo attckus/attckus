@@ -1,3 +1,9 @@
+---
+title: groot scan
+parent: Design
+nav_order: 2
+---
+
 # groot scan
 
 ```
