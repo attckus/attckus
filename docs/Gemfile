@@ -1,6 +1,30 @@
-# Local preview of the docs site (GitHub Pages builds it automatically):
+# Local preview of the docs site:
 #   cd docs && bundle install && bundle exec jekyll serve
 #   then open http://localhost:4000/groot/
+#
+# GitHub Pages builds the published site itself and ignores this file. The
+# official "github-pages" gem doesn't support Ruby 4, so for previews we use
+# plain Jekyll with the same theme and plugins. Needs Ruby 3.2 or newer
+# (macOS's built-in Ruby 2.6 is too old; use `brew install ruby`).
 source "https://rubygems.org"
-gem "github-pages", group: :jekyll_plugins
+
+gem "jekyll", "~> 4.4"
+
+group :jekyll_plugins do
+  gem "jekyll-remote-theme"
+  gem "jekyll-relative-links"
+  gem "jekyll-optional-front-matter"
+  gem "jekyll-readme-index"
+  gem "jekyll-default-layout"
+  gem "jekyll-titles-from-headings"
+  gem "jekyll-seo-tag"
+  gem "jekyll-include-cache"
+end
+
 gem "webrick"
+
+# Ruby 3.4+ no longer bundles these; Jekyll still needs them.
+gem "csv"
+gem "base64"
+gem "bigdecimal"
+gem "logger"

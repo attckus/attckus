@@ -45,7 +45,7 @@ FAIL   prompt injection in order data  (attack)
 
 `groot scan` reads your Kubernetes and AWS permission exports and your agent's tool configuration. It follows every path from the agent to what it can touch, and answers plain questions:
 
-| | |
+| Question | Answer for the demo support bot |
 | --- | --- |
 | Can it delete a database? | **Yes, including production**: `dynamodb:DeleteItem` via role `ops-admin` |
 | Can it run compute without a cap? | **Yes**: `ec2:RunInstances` via role `ops-admin` |
