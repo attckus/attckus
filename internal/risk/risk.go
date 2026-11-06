@@ -116,6 +116,20 @@ type AgentResult struct {
 	Sources      []string           `json:"sources"`
 	Capabilities []capability.Class `json:"capabilities"`
 	Reach        []graph.Reach      `json:"-"`
+	// Grants is every permission the agent can reach, with where it comes from.
+	Grants []Grant `json:"grants,omitempty"`
+	// Answers is the fixed list of "can it ...?" questions for this agent.
+	Answers []Answer `json:"answers,omitempty"`
+}
+
+// Grant is one permission an agent can reach.
+type Grant struct {
+	Class       capability.Class `json:"class"`
+	Text        string           `json:"text"`
+	Source      string           `json:"source"` // aws, k8s or mcp
+	Via         string           `json:"via"`    // the identity or server that holds it
+	Prod        bool             `json:"prod,omitempty"`
+	Conditional bool             `json:"conditional,omitempty"`
 }
 
 // Result of an analysis.
@@ -138,6 +152,7 @@ type grant struct {
 	text        string
 	prod        bool
 	conditional bool
+	source      string // aws, k8s or mcp
 }
 
 // Analyze builds the graph and findings for an inventory.
@@ -205,7 +220,7 @@ func (b *builder) addAgent(a *inventory.Agent) {
 		b.g.AddEdge(graph.Edge{From: id, To: sid, Kind: graph.Uses})
 		if s.Known {
 			for _, c := range s.Profile.Classes.Sorted() {
-				b.grants[sid] = append(b.grants[sid], grant{class: c, text: s.Kind + " server: " + s.Profile.Note})
+				b.grants[sid] = append(b.grants[sid], grant{class: c, text: s.Kind + " server: " + s.Profile.Note, source: "mcp"})
 			}
 		}
 		if s.AWSRole != "" {
@@ -230,7 +245,7 @@ func (b *builder) addK8sGrants(saID, ns, name string) {
 		}
 		b.grants[saID] = append(b.grants[saID], grant{
 			class: kg.Class, text: fmt.Sprintf("%s %s %s (%s)", kg.Verb, res, scope, kg.Via),
-			prod: kg.Namespace == "" || IsProd(kg.Namespace),
+			prod: kg.Namespace == "" || IsProd(kg.Namespace), source: "k8s",
 		})
 	}
 }
@@ -257,7 +272,7 @@ func (b *builder) addRole(arn string) string {
 		gs = append(gs, grant{
 			class: ag.Class, text: fmt.Sprintf("%s on %s (%s)", ag.Action, ag.Resource, ag.Via),
 			prod:        ag.Resource == "*" || IsProd(ag.Resource) || IsProd(role.Tags["env"]) || IsProd(role.Tags["environment"]),
-			conditional: ag.Conditional,
+			conditional: ag.Conditional, source: "aws",
 		})
 	}
 	b.grants[id] = gs
@@ -293,6 +308,7 @@ func (b *builder) evaluate(a *inventory.Agent) (AgentResult, []finding) {
 		}
 		byClass := map[capability.Class][]grant{}
 		for _, g := range gs {
+			ar.Grants = append(ar.Grants, Grant{Class: g.class, Text: g.text, Source: g.source, Via: r.Node.Label, Prod: g.prod, Conditional: g.conditional})
 			byClass[g.class] = append(byClass[g.class], g)
 			caps[g.class] = true
 			legs[g.class] = appendOnce(legs[g.class], r.Node.Label)
@@ -343,6 +359,7 @@ func (b *builder) evaluate(a *inventory.Agent) (AgentResult, []finding) {
 		out = append(out, f)
 	}
 	ar.Capabilities = caps.Sorted()
+	ar.Answers = Answers(ar.Grants)
 	if capability.Trifecta(caps) {
 		private := append(append(append([]string{}, legs[capability.Read]...), legs[capability.Secrets]...), legs[capability.Destroy]...)
 		info := ruleInfo(RuleTrifecta)

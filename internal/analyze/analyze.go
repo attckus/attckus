@@ -19,9 +19,12 @@ import (
 type Options struct {
 	RetryThreshold int           // identical calls within Window that count as a storm
 	Window         time.Duration // time window for storms and escalation
+	LoopRepeats    int           // times a 2-4 call cycle must repeat to count as a runaway loop
 }
 
-func DefaultOptions() Options { return Options{RetryThreshold: 5, Window: 60 * time.Second} }
+func DefaultOptions() Options {
+	return Options{RetryThreshold: 5, Window: 60 * time.Second, LoopRepeats: 4}
+}
 
 // Issue kinds.
 const (
@@ -32,6 +35,7 @@ const (
 	ToolFlagged   = "tool_flagged"
 	ToolChanged   = "tool_changed"
 	BudgetHit     = "budget_exceeded"
+	RunawayLoop   = "runaway_loop"
 )
 
 type Issue struct {
@@ -66,7 +70,7 @@ type Report struct {
 }
 
 var blockedDecisions = map[string]bool{
-	audit.Denied: true, audit.PendingApprove: true, audit.RateLimited: true, audit.Killed: true, audit.WouldDeny: true,
+	audit.Denied: true, audit.PendingApprove: true, audit.WouldDeny: true,
 }
 
 // sideEffect reports whether repeating a successful call to tool is harmful.
@@ -87,6 +91,8 @@ func Run(events []audit.Event, opt Options) Report {
 	failures := map[string][]failure{}    // agent -> recent failures
 	escalations := map[string]*Issue{}
 	budget := map[string][]time.Time{} // agent -> refused model calls
+	seqs := map[string][]string{}      // agent -> ordered tool|args keys
+	seqTimes := map[string][]time.Time{}
 
 	for _, e := range events {
 		switch e.Type {
@@ -94,6 +100,8 @@ func Run(events []audit.Event, opt Options) Report {
 			rep.Summary.Calls++
 			key := e.Agent + "|" + e.Tool + "|" + e.ArgsHash
 			calls[key] = append(calls[key], e.Time)
+			seqs[e.Agent] = append(seqs[e.Agent], e.Tool+"|"+e.ArgsHash)
+			seqTimes[e.Agent] = append(seqTimes[e.Agent], e.Time)
 			switch {
 			case blockedDecisions[e.Decision]:
 				rep.Summary.Blocked++
@@ -163,6 +171,18 @@ func Run(events []audit.Event, opt Options) Report {
 				Detail: fmt.Sprintf("%s succeeded %d times with identical arguments; the side effect happened more than once (use an idempotency key)", tool, len(times))})
 		}
 	}
+	for agent, seq := range seqs {
+		if cycle, n, at := findLoop(seq, opt.LoopRepeats); n > 0 {
+			tools := make([]string, len(cycle))
+			for i, k := range cycle {
+				tools[i] = strings.SplitN(k, "|", 2)[0]
+			}
+			times := seqTimes[agent]
+			last := at + n*len(cycle) - 1
+			rep.Issues = append(rep.Issues, Issue{Kind: RunawayLoop, Severity: "high", Agent: agent, Tool: tools[0], Count: n, First: times[at], Last: times[last],
+				Detail: fmt.Sprintf("%s repeated the cycle %s %d times with the same arguments; it is not making progress", agent, strings.Join(tools, " → "), n)})
+		}
+	}
 	for key, times := range blocked {
 		agent, tool := split(key)
 		rep.Issues = append(rep.Issues, Issue{Kind: Blocked, Severity: "medium", Agent: agent, Tool: tool, Count: len(times), First: times[0], Last: times[len(times)-1],
@@ -192,6 +212,33 @@ func Run(events []audit.Event, opt Options) Report {
 		rep.Issues = []Issue{}
 	}
 	return rep
+}
+
+// findLoop finds the longest run of a 2 to 4 call cycle repeated at least
+// min times. A cycle of one repeated call is a retry storm, not a loop, and
+// a cycle that is one call repeated is skipped for the same reason. It
+// returns the cycle, how many times it repeated, and where it starts.
+func findLoop(seq []string, min int) (cycle []string, repeats, start int) {
+	if min < 2 {
+		return nil, 0, 0
+	}
+	for p := 2; p <= 4; p++ {
+		for i := 0; i+p*min <= len(seq); i++ {
+			j := i + p
+			for j < len(seq) && seq[j] == seq[j-p] {
+				j++
+			}
+			n := (j - i) / p
+			distinct := false
+			for k := 1; k < p; k++ {
+				distinct = distinct || seq[i+k] != seq[i]
+			}
+			if n >= min && distinct && n > repeats {
+				cycle, repeats, start = seq[i:i+p], n, i
+			}
+		}
+	}
+	return cycle, repeats, start
 }
 
 type failure struct {

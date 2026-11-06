@@ -17,3 +17,6 @@ coverage.*
 .idea/
 .vscode/
 *.swp
+
+# groot test evidence (default --out)
+.groot/

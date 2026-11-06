@@ -129,3 +129,35 @@ func TestLLMSummaryAndBudget(t *testing.T) {
 		t.Errorf("text:\n%s", b.String())
 	}
 }
+
+func TestRunawayLoop(t *testing.T) {
+	var evs []audit.Event
+	for i := 0; i < 5; i++ { // search -> fetch -> search -> fetch ...
+		evs = append(evs,
+			audit.Event{Time: at(i * 20), Type: audit.ToolCall, Agent: "bot", Tool: "search_orders", ArgsHash: "a", Decision: audit.Forwarded},
+			audit.Event{Time: at(i*20 + 5), Type: audit.ToolCall, Agent: "bot", Tool: "get_order", ArgsHash: "b", Decision: audit.Forwarded})
+	}
+	is, ok := kinds(Run(evs, DefaultOptions()))[RunawayLoop]
+	if !ok || is.Count != 5 || !strings.Contains(is.Detail, "search_orders → get_order") {
+		t.Fatalf("loop = %+v", is)
+	}
+	// Same tools with changing arguments is progress (paging), not a loop.
+	var paging []audit.Event
+	for i := 0; i < 5; i++ {
+		h := string(rune('a' + i))
+		paging = append(paging,
+			audit.Event{Time: at(i * 20), Type: audit.ToolCall, Agent: "bot", Tool: "search_orders", ArgsHash: h, Decision: audit.Forwarded},
+			audit.Event{Time: at(i*20 + 5), Type: audit.ToolCall, Agent: "bot", Tool: "get_order", ArgsHash: h, Decision: audit.Forwarded})
+	}
+	if _, ok := kinds(Run(paging, DefaultOptions()))[RunawayLoop]; ok {
+		t.Error("paging flagged as a loop")
+	}
+	// Four identical calls in a row are the retry storm detector's job.
+	var same []audit.Event
+	for i := 0; i < 8; i++ {
+		same = append(same, audit.Event{Time: at(i), Type: audit.ToolCall, Agent: "bot", Tool: "get_order", ArgsHash: "x", Decision: audit.Forwarded})
+	}
+	if _, ok := kinds(Run(same, DefaultOptions()))[RunawayLoop]; ok {
+		t.Error("single repeated call flagged as a loop")
+	}
+}

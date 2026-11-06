@@ -1,14 +1,18 @@
 # groot scan
 
 ```
-groot scan [--format text|json|sarif|mermaid] [--fail-on critical|high|medium|low|none] [dir]
+groot scan [--format text|json|sarif|mermaid|html] [--fail-on critical|high|medium|low|none] [dir]
 ```
 
 ## Use case
 
-A platform engineer wants to know what each AI agent in a repo could break if it were tricked, before any traffic exists. They export a Kubernetes snapshot and an IAM snapshot, point `scan` at the directory, and get one finding per agent and risk class, each with the path that creates it (`support-bot → sa support/support-bot → role support-agent-role → s3:* on orders-prod/*`).
+A platform or security engineer wants to know what each AI agent could break if it were tricked, before any traffic exists. Can it delete a database? Run Lambda functions without limit? Delete AWS or Kubernetes resources? They export a Kubernetes snapshot and an IAM snapshot, point `scan` at the directory, and get, per agent:
 
-Offline by design: no cloud credentials, no network. In CI, `--fail-on critical` (the default) fails the build; `--format sarif` feeds code scanning.
+- answers to those questions, each with the permission that makes it true;
+- one finding per risk class with the path that creates it (`support-bot → sa support/support-bot → role support-agent-role → role ops-admin`);
+- a reach graph, in the HTML report ([report.md](report.md)).
+
+Offline by design: no cloud credentials, no network. In CI, `--fail-on critical` (the default) fails the build, and `--format sarif` feeds code scanning. `groot test` reuses the same result to explain the impact of an obeyed injection.
 
 ## Design
 
@@ -20,8 +24,8 @@ flowchart LR
   iam[AWS IAM JSON] --> inv
   inv --> pg[Permission graph]
   pg --> bfs["BFS from each agent"]
-  bfs --> risk["Risk engine: one finding per agent and class + trifecta + hygiene"]
-  risk --> out["text, JSON, SARIF, Mermaid"]
+  bfs --> risk["Grants per agent → answers, findings, trifecta, hygiene"]
+  risk --> out["text, JSON, SARIF, Mermaid, HTML"]
 ```
 
 ### Inventory
@@ -30,7 +34,7 @@ The walker skips `.git`, `node_modules`, `vendor`, `.venv`, `venv`, `__pycache__
 
 - **MCP configs** by file name (`mcpServers` and `servers` maps): transport, package and whether its version is pinned, literal secrets (redacted), `AWS_ROLE_ARN`.
 - **Agent code** by imports (LangGraph, LangChain, CrewAI, AutoGen, LlamaIndex, Pydantic AI, OpenAI Agents SDK, Vercel AI SDK, Mastra, provider SDKs, MCP client libraries).
-- **Snapshots** by content sniffing of `.json`: an IAM authorization export, or Kubernetes objects. Several Kubernetes exports merge; only one IAM export is used.
+- **Snapshots** by sniffing the content of `.json` files: an IAM authorization export, or Kubernetes objects. Several Kubernetes exports merge; only one IAM export is used.
 
 ### Linking into agents
 
@@ -40,33 +44,34 @@ The walker skips `.git`, `node_modules`, `vendor`, `.venv`, `venv`, `__pycache__
 
 ### Identity resolution
 
-- **Kubernetes**: workload to service account (token mounted or not), RBAC bindings (including the `system:serviceaccounts*` and `system:authenticated` groups), IRSA through the `eks.amazonaws.com/role-arn` annotation.
+- **Kubernetes**: workload to service account (token mounted or not); RBAC bindings, including the `system:serviceaccounts*` and `system:authenticated` groups; IRSA through the `eks.amazonaws.com/role-arn` annotation.
 - **AWS**: inline and attached managed policies tested against a catalogue of about 60 sensitive actions (wildcards resolve), `NotAction`, explicit denies, conditional allows kept and marked, assume-role chains using trust policies.
 - **MCP servers**: profiles matched on package, command or URL. Unknown servers are reported, not guessed.
 
 Not modelled, and stated in every report: SCPs, permission boundaries, session policies, resource-based policies.
 
-### Graph and findings
+### Graph, grants and answers
 
-Nodes: agents, MCP servers, service accounts, AWS roles. Edges: `runs_as`, `irsa`, `assumes`, `uses`, `credentials`.
+Nodes: agents, MCP servers, service accounts, AWS roles. Edges: `runs_as`, `irsa`, `assumes`, `uses`, `credentials`. Each identity or server node carries grants: a capability class, the permission text, its source (`aws`, `k8s`, `mcp`), and whether it covers production or is conditional.
 
-```mermaid
-flowchart LR
-  A[support-bot]:::agent -->|runs_as| SA[sa support/support-bot]
-  SA -->|irsa| R1[role support-agent-role]
-  R1 -->|assumes| R2[role ops-admin]
-  A -->|uses| F[mcp fetch]
-  A -->|uses| S[mcp slack]
-  R1 --> G1[destroy: s3:* orders-prod/*]:::critical
-  R2 --> G2[admin: AdministratorAccess]:::critical
-  F --> U[untrusted input]:::high
-  S --> E[external channel]:::high
-  classDef agent fill:#e8f0fe,stroke:#3367d6
-  classDef critical fill:#fde8e8,stroke:#c5221f
-  classDef high fill:#fef3e0,stroke:#e37400
-```
+Breadth-first search from each agent gives the shortest path to every node it can reach. Every grant on those nodes becomes one of the agent's `grants`, tagged with the node that holds it.
 
-Breadth-first search from each agent gives the shortest path to every identity. For each risk class (admin, exec, destroy, secrets, write) the candidates from every identity are ranked by severity, then number of grants; the worst becomes the finding, the rest are listed as "also via".
+**Answers.** A fixed list of questions is evaluated against the agent's grants (`risk.Answers`):
+
+| Question | Matches |
+| --- | --- |
+| Can it delete a database? | AWS `rds:Delete*`, `dynamodb:Delete*`, `rds:ModifyDBInstance`; Kubernetes delete on StatefulSets, PVCs or PVs; a database MCP server with destroy tools |
+| Can it delete AWS resources? | any AWS grant of class destroy |
+| Can it delete Kubernetes resources? | any Kubernetes grant of class destroy |
+| Can it run compute without a cap (Lambda, EC2, ECS, pods)? | `lambda:InvokeFunction`, `lambda:CreateFunction`, `lambda:UpdateFunctionCode`, `ec2:RunInstances`, `ecs:RunTask`; Kubernetes `create pods`, `pods/exec`, `pods/attach` |
+| Can it run commands or code? | any exec grant |
+| Can it read secrets? | any secrets grant |
+| Can it give itself more access? | any admin grant |
+| Can it send data outside the company? | any external grant |
+
+Each answer carries up to three matching permissions, the node that holds the first, and whether any match covers production.
+
+**Findings.** For each risk class (admin, exec, destroy, secrets, write) the candidates from every reachable node are ranked by severity, then by number of grants; the worst becomes the finding and the rest are listed as "also via".
 
 | Class | Severity |
 | --- | --- |
@@ -86,42 +91,33 @@ Breadth-first search from each agent gives the shortest path to every identity. 
 | --- | --- | --- |
 | Discover | directory tree | `Inventory`: agents, MCP servers, K8s model, AWS snapshot, warnings |
 | Build graph | `Inventory` | `graph.Graph` and per-node grants |
-| Evaluate | graph, grants | per-agent reach, capabilities, findings |
-| Render | `risk.Result` | text, JSON, SARIF 2.1.0 or Mermaid |
+| Evaluate | graph, grants | per agent: reach, grants, capabilities, answers, findings |
+| Render | `risk.Result` | text, JSON, SARIF 2.1.0, Mermaid or HTML |
 | Exit code | findings, `--fail-on` | `1` if any finding is at or above the threshold |
 
-## Code trace
+## Where the code lives
 
-Following `groot scan ./repo` end to end.
-
-| # | Step | Location |
-| --- | --- | --- |
-| 1 | `run` dispatches `"scan"` to `scan(args, …, "")` | `cmd/groot/main.go:44`, `:98` |
-| 2 | Flags `--format`, `--fail-on`; `forceFormat` (used by `graph`) overrides them | `cmd/groot/main.go:98-108` |
-| 3 | Root defaults to `.`; `risk.ParseSeverity` validates `--fail-on` (exit 2 if bad) | `cmd/groot/main.go:109-121`, `internal/risk/risk.go:39` |
-| 4 | `inventory.Discover` walks the tree with `filepath.WalkDir`, skipping `skipDirs` and large files | `internal/inventory/inventory.go:72`, `:68` |
-| 5a | MCP config: `ParseMCPConfig` (package pinning, secret detection, role ARN); parse errors become warnings | `internal/inventory/mcpconfig.go:70`, `:136`, `:200` |
-| 5b | `.json` snapshot: `sniffSnapshot` tries `aws.LooksLike` then `k8s.LooksLike` | `internal/inventory/inventory.go:128` |
-| 5c | Source file: `detectCode` matches SDK imports per file | `internal/inventory/code.go:84` |
-| 6 | `assemble` links code dirs, MCP servers and workloads into agents, sorted by name | `internal/inventory/inventory.go:155` |
-| 7 | Warnings are printed to stderr | `cmd/groot/main.go:126-128` |
-| 8 | `risk.Analyze` creates the builder and graph | `internal/risk/risk.go:144` |
-| 9 | `addAgent`: agent node; workload to service account to K8s grants (`addK8sGrants`) and IRSA role; each MCP server node with profile grants and `credentials` edge | `internal/risk/risk.go:188`, `:217` |
-| 10 | `addRole` adds the role node, its AWS grants, and recursively the roles it can assume | `internal/risk/risk.go:239` |
-| 11 | `evaluate`: `Graph.From` BFS gives every reachable identity with its path | `internal/risk/risk.go:279`, `internal/graph/graph.go:79` |
-| 12 | Per reachable node, grants are grouped by class into candidates; `classSeverity` scores each | `internal/risk/risk.go:289-310`, `:371` |
-| 13 | Worst candidate per class becomes a `Finding` with path, evidence and fix text; others appended as "also via" | `internal/risk/risk.go:313-344` |
-| 14 | `capability.Trifecta` on the combined capability set adds the FL110 finding | `internal/risk/risk.go:346`, `internal/capability/capability.go:79` |
-| 15 | `hygiene(a)` adds FL201-FL204 | `internal/risk/risk.go:456` |
-| 16 | Findings sorted by severity, agent, rule; node summaries built; IAM caveat note added | `internal/risk/risk.go:156-176` |
-| 17 | Render: `report.Text`, `JSON`, `SARIF`, or `Mermaid` | `internal/report/report.go:20`, `:75`, `:93`, `:175` |
-| 18 | Exit `1` if any finding's severity is at or above the threshold | `cmd/groot/main.go:149-155` |
+| Step | Code |
+| --- | --- |
+| Flags, rendering, exit code | `scan` in `cmd/groot/main.go` (`graph` calls it with format `html` and `--fail-on none`) |
+| Directory walk and snapshot sniffing | `Discover`, `sniffSnapshot` in `internal/inventory/inventory.go` |
+| MCP configs, secrets, pinning | `ParseMCPConfig` in `internal/inventory/mcpconfig.go` |
+| Agent code detection | `detectCode` in `internal/inventory/code.go` |
+| Linking into agents | `assemble` in `internal/inventory/inventory.go` |
+| Kubernetes RBAC and IRSA | `internal/identity/k8s` |
+| IAM evaluation and role chains | `internal/identity/aws` |
+| Graph and BFS | `internal/graph/graph.go` |
+| Grants, findings, severities, trifecta, hygiene | `Analyze`, `addAgent`, `addRole`, `addK8sGrants`, `evaluate`, `classSeverity`, `hygiene` in `internal/risk/risk.go` |
+| Answers | `Answers` in `internal/risk/answers.go` |
+| Text, JSON, SARIF, Mermaid | `internal/report/report.go` |
+| HTML and reach graph | `internal/report/html.go`, `internal/report/graphsvg.go` |
 
 ## Failure modes
 
 | Situation | Behaviour |
 | --- | --- |
-| Unparseable MCP config or snapshot | warning on stderr, scan continues |
-| Role referenced but missing from the IAM export | note in the report, no grants for that role |
-| Second IAM snapshot in the tree | warning, the first is used |
+| Unparseable MCP config or snapshot | warning on stderr; scan continues |
+| Role referenced but missing from the IAM export | note in the report; no grants for that role |
+| Agent uses AWS roles but there is no IAM export | note in the report |
+| Second IAM snapshot in the tree | warning; the first is used |
 | Unknown `--format` or `--fail-on` | exit 2 |

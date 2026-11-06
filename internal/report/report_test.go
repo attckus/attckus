@@ -92,3 +92,19 @@ func TestJSONEmpty(t *testing.T) {
 		t.Errorf("empty result should encode empty arrays: %s", b.String())
 	}
 }
+
+func TestHTML(t *testing.T) {
+	var b bytes.Buffer
+	if err := HTML(&b, HTMLData{Scan: demo(t)}); err != nil {
+		t.Fatal(err)
+	}
+	out := b.String()
+	for _, want := range []string{"<svg class=\"reach\"", "Can it delete a database?", "Yes, including production", "role ops-admin", "FL103"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("html missing %q", want)
+		}
+	}
+	if strings.Contains(out, "<script") || strings.Contains(out, "AbCdEfGh") {
+		t.Error("html must be script-free and must not leak secrets")
+	}
+}

@@ -1,11 +1,12 @@
-// Command groot finds what AI agents can break and stops them doing it.
+// Command groot tests AI agents by trying to break them, and shows what
+// they could damage if they did break.
 //
-//	groot scan [flags] [dir]        blast-radius scan of agents and MCP servers
-//	groot graph [dir]               Mermaid graph of every agent's reach
-//	groot gateway stdio [flags] -- <server command...>
-//	groot gateway http [flags] --upstream <url>
+//	groot test [flags]              run the agent under attacks and faults; judge what it did
+//	groot scan [flags] [dir]        what each agent can reach in AWS, Kubernetes and MCP servers
+//	groot graph [dir]               HTML report with each agent's reach graph
 //	groot analyze [flags] <audit.jsonl>
 //	groot policy init|check
+//	groot gateway stdio [flags] -- <server command...>   (internal: used by groot test)
 package main
 
 import (
@@ -15,8 +16,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -50,7 +49,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	case "scan":
 		return scan(args[1:], stdout, stderr, "")
 	case "graph":
-		return scan(args[1:], stdout, stderr, "mermaid")
+		return scan(args[1:], stdout, stderr, "html")
 	case "test":
 		return testCmd(args[1:], stdout, stderr)
 	case "gateway":
@@ -72,15 +71,13 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprint(w, `groot: find what your AI agents can break, and stop them
+	fmt.Fprint(w, `groot: break your AI agents before attackers and outages do, and see what they can reach
 
 Usage:
-  groot test [--suite groot-suite.json] [--format text|json|junit] [--scenario name] [--out dir] [--strict]
-  groot scan [--format text|json|sarif|mermaid] [--fail-on critical|high|medium|low|none] [dir]
-  groot graph [dir]
-  groot gateway stdio --policy p.json [--agent name] [--audit file] [--env dev] -- <server command...>
-  groot gateway http  --policy p.json --upstream URL [--listen :8787] [--agent name] [--audit file]
-  groot gateway llm   --policy p.json [--listen :8788] [--agent name] [--audit file] [--inject-keys]
+  groot test  [--suite groot-suite.json] [--format text|json|junit] [--html report.html] [--scan dir]
+              [--scenario name] [--out dir] [--strict]
+  groot scan  [--format text|json|sarif|mermaid|html] [--fail-on critical|high|medium|low|none] [dir]
+  groot graph [dir]                      HTML report with each agent's reach graph
   groot analyze [--format text|json] [--retry-threshold 5] [--window 60s] audit.jsonl
   groot policy init [--out policy.json]
   groot policy check policy.json
@@ -98,7 +95,7 @@ Scan reads MCP configs, agent code, and exported snapshots in dir:
 func scan(args []string, stdout, stderr io.Writer, forceFormat string) int {
 	fs := flag.NewFlagSet("scan", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	format := fs.String("format", "text", "text, json, sarif or mermaid")
+	format := fs.String("format", "text", "text, json, sarif, mermaid or html")
 	failOn := fs.String("fail-on", "critical", "exit 1 at this severity or above: critical, high, medium, low or none")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -138,6 +135,8 @@ func scan(args []string, stdout, stderr io.Writer, forceFormat string) int {
 		err = report.SARIF(stdout, res, version)
 	case "mermaid":
 		report.Mermaid(stdout, res)
+	case "html":
+		err = report.HTML(stdout, report.HTMLData{Title: "Groot scan: what your agents can reach", Scan: res})
 	default:
 		fmt.Fprintf(stderr, "unknown format %q\n", *format)
 		return 2
@@ -232,56 +231,29 @@ func (g *gatewayFlags) engine(stderr io.Writer) (*gateway.Engine, func(), error)
 	return e, closer, nil
 }
 
+// gatewayCmd is the stdio wrapper that groot test puts in front of each
+// stdio MCP server. It is not meant to be run by hand.
 func gatewayCmd(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	if len(args) > 0 && args[0] == "llm" {
-		return llmCmd(args[1:], stderr)
-	}
-	if len(args) == 0 || (args[0] != "stdio" && args[0] != "http") {
-		fmt.Fprintln(stderr, "usage: groot gateway stdio|http|llm [flags]")
+	if len(args) == 0 || args[0] != "stdio" {
+		fmt.Fprintln(stderr, "usage: groot gateway stdio --policy p.json [flags] -- <server command...>   (used by groot test)")
 		return 2
 	}
-	mode := args[0]
-	fs := flag.NewFlagSet("gateway "+mode, flag.ContinueOnError)
+	fs := flag.NewFlagSet("gateway stdio", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	var g gatewayFlags
 	g.register(fs)
-	upstream := fs.String("upstream", "", "upstream MCP server URL (http mode)")
-	listen := fs.String("listen", "127.0.0.1:8787", "listen address (http mode)")
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-
-	if mode == "stdio" {
-		cmdArgs := fs.Args()
-		if len(cmdArgs) == 0 {
-			fmt.Fprintln(stderr, "usage: groot gateway stdio --policy p.json -- <server command...>")
-			return 2
-		}
-		if g.server == "" {
-			g.server = filepath.Base(cmdArgs[0])
-		}
-		e, closeAudit, err := g.engine(stderr)
-		if err != nil {
-			fmt.Fprintln(stderr, "groot:", err)
-			return 2
-		}
-		defer closeAudit()
-		return runStdio(ctx, e, cmdArgs, stdin, stdout, stderr)
-	}
-
-	if *upstream == "" {
-		fmt.Fprintln(stderr, "groot: --upstream is required in http mode")
-		return 2
-	}
-	u, err := url.Parse(*upstream)
-	if err != nil || u.Scheme == "" || u.Host == "" {
-		fmt.Fprintf(stderr, "groot: bad --upstream %q\n", *upstream)
+	cmdArgs := fs.Args()
+	if len(cmdArgs) == 0 {
+		fmt.Fprintln(stderr, "usage: groot gateway stdio --policy p.json -- <server command...>")
 		return 2
 	}
 	if g.server == "" {
-		g.server = u.Hostname()
+		g.server = filepath.Base(cmdArgs[0])
 	}
 	e, closeAudit, err := g.engine(stderr)
 	if err != nil {
@@ -289,19 +261,7 @@ func gatewayCmd(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 2
 	}
 	defer closeAudit()
-	srv := &http.Server{Addr: *listen, Handler: &gateway.HTTPProxy{Engine: e, Upstream: u}, ReadHeaderTimeout: 10 * time.Second}
-	go func() {
-		<-ctx.Done()
-		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = srv.Shutdown(shutdown)
-	}()
-	fmt.Fprintf(stderr, "groot: listening on http://%s, forwarding to %s\n", *listen, u)
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		fmt.Fprintln(stderr, "groot:", err)
-		return 1
-	}
-	return 0
+	return runStdio(ctx, e, cmdArgs, stdin, stdout, stderr)
 }
 
 func runStdio(ctx context.Context, e *gateway.Engine, cmdArgs []string, stdin io.Reader, stdout, stderr io.Writer) int {
@@ -408,7 +368,7 @@ func policyCmd(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		fmt.Fprintf(stderr, "wrote %s (dry-run mode; switch \"mode\" to \"enforce\" when ready)\n", *out)
+		fmt.Fprintf(stderr, "wrote %s; use it as the suite's \"policy\"\n", *out)
 		return 0
 	case "check":
 		if len(args) != 2 {

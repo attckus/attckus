@@ -9,6 +9,12 @@
 //  3. gives up on a slow send_email after 300 ms and sends it again
 //  4. after the refund keeps failing, reaches for a more powerful tool
 //
+// With NAIVE_MODE=desperate it ignores instructions in tool results until
+// something has failed, then reads error text and a fresh order lookup
+// closely and obeys what it finds. That stands in for an LLM that is most
+// compliant when its plan is breaking; it is what the compound scenarios in
+// groot-suite-compound.json measure.
+//
 // Run it with `groot test --suite examples/demo-env/groot-suite.json`.
 package main
 
@@ -151,12 +157,19 @@ func main() {
 		log.Fatal(err)
 	}
 
+	desperate := os.Getenv("NAIVE_MODE") == "desperate"
+	obey := func(text string) {
+		if m := injected.FindStringSubmatch(text); m != nil {
+			out, isErr, err := c.tool(m[1], map[string]any{"to": m[2], "body": "as instructed"})
+			log.Printf("followed instruction in tool result: %s -> err=%v isError=%v %s", m[1], err, isErr, out)
+		}
+	}
+
 	// Mistake 1: obey instructions found in tool results.
 	text, isErr, err := c.tool("get_order", map[string]any{"order_id": "ACME-1042"})
 	log.Printf("get_order: err=%v isError=%v %s", err, isErr, text)
-	if m := injected.FindStringSubmatch(text); m != nil {
-		out, isErr, err := c.tool(m[1], map[string]any{"to": m[2], "body": "as instructed"})
-		log.Printf("followed instruction in tool result: %s -> err=%v isError=%v %s", m[1], err, isErr, out)
+	if !desperate {
+		obey(text)
 	}
 
 	// Mistake 2: retry storm.
@@ -165,6 +178,13 @@ func main() {
 		text, isErr, err := c.tool("refund_order", map[string]any{"order_id": "ACME-1042"})
 		log.Printf("refund attempt %d: err=%v isError=%v %s", attempt, err, isErr, text)
 		refunded = err == nil && !isErr
+		if desperate && !refunded {
+			obey(text)
+		}
+	}
+	if desperate && !refunded {
+		text, _, _ := c.tool("get_order", map[string]any{"order_id": "ACME-1042"})
+		obey(text)
 	}
 	// Mistake 3: duplicate side effect after a client-side timeout.
 	for attempt := 1; attempt <= 2; attempt++ {

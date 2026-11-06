@@ -1,75 +1,71 @@
 # Groot design
 
-Groot is security and resilience testing for AI agents, in CI. It answers two questions: if this agent is attacked or its tools fail, does it behave safely, and what could it reach if it didn't?
+Groot is a security and governance tool for teams building AI agents. It answers three questions:
 
-There is one design document per command. Each has a use case, a design diagram, the data flow, and a code trace that follows a real invocation through the source.
+1. **Does the agent behave safely when attacked or when its tools fail?** (`groot test`)
+2. **What could the agent damage if it didn't?** (`groot scan`)
+3. **What should I show my team?** (the HTML report, from either command)
+
+There is one design document per command, plus one for the proxies that `groot test` runs internally. Each has a use case, a design, the data flow, where the code lives, and failure modes. Code is referenced by file and function, not line number, so the docs stay true as the code moves.
 
 | Command | What it does | Doc |
 | --- | --- | --- |
-| `groot test` | Runs the agent's own tests under injected faults and attacks, and judges the audit log | [test.md](test.md) |
-| `groot scan` | Offline blast-radius scan of agents, MCP configs, Kubernetes and IAM snapshots | [scan.md](scan.md) |
-| `groot graph` | Mermaid graph of every agent's reach (a `scan` with a fixed format) | [graph.md](graph.md) |
-| `groot gateway stdio` | Policy, chaos and audit proxy in front of a stdio MCP server | [gateway-stdio.md](gateway-stdio.md) |
-| `groot gateway http` | The same, for Streamable HTTP MCP servers | [gateway-http.md](gateway-http.md) |
-| `groot gateway llm` | Drop-in proxy for the Anthropic and OpenAI APIs | [gateway-llm.md](gateway-llm.md) |
-| `groot analyze` | Turns an audit log into reliability and safety issues | [analyze.md](analyze.md) |
-| `groot policy init\|check` | Writes and validates policy files | [policy.md](policy.md) |
+| `groot test` | Runs the agent's own tests under injected attacks and faults; judges the audit log; joins failures to the agent's reach | [test.md](test.md) |
+| `groot scan` | Offline scan of agents, MCP configs, Kubernetes and IAM snapshots: what each agent can reach | [scan.md](scan.md) |
+| `groot graph`, `--format html`, `--html` | Self-contained HTML report with a reach graph per agent | [report.md](report.md) |
+| `groot analyze` | Turns an audit log into behaviour issues (retry storms, loops, duplicate side effects, escalation) | [analyze.md](analyze.md) |
+| `groot policy init\|check` | Writes and validates the permission boundary the tests check against | [policy.md](policy.md) |
+| (internal) | MCP and model API proxies that apply policy, faults and attacks during a test | [gateway.md](gateway.md) |
 
-## How the commands fit together
+## How the pieces fit together
 
 ```mermaid
 flowchart LR
-  subgraph offline[Offline, no credentials]
-    scan[scan / graph] --> rep[Findings, graph]
+  subgraph reach[Reach: offline, no credentials]
+    snap["MCP configs, agent code, k8s.json, iam.json"] --> scan[scan]
+    scan --> res["risk.Result: graph, answers, findings"]
   end
-  subgraph runtime[Runtime]
-    pol[policy init / check] --> polf[(policy.json)]
-    polf --> gw["gateway stdio / http / llm"]
-    gw --> log[(audit.jsonl)]
-    log --> an[analyze]
+  subgraph break[Break: one run per scenario]
+    suite[groot-suite.json] --> test[test]
+    pol[(policy.json)] --> test
+    test --> proxies["MCP + model API proxies: policy, faults, attacks"]
+    proxies <--> agent[agent under test]
+    proxies --> log[(audit.jsonl)]
+    log --> an[analyze] --> verdict[pass / fail / inconclusive]
   end
-  test[test] -->|"per scenario: starts gateways in-process or as child processes"| gw
-  test -->|"reads"| log
-  test --> verdict[pass / fail / inconclusive]
+  res -->|impact of an obeyed injection| verdict
+  verdict --> html[HTML report]
+  res --> html
 ```
 
-`test` is the product. It drives the gateways, then reuses `analyze` on the audit log they wrote. `scan` is independent and works on files only.
+`test` is the core. It drives the proxies, reuses `analyze` on the audit log they wrote, and, when the suite names a scan directory, joins an obeyed injection to what the agent's identity can reach. `scan` works on files only.
 
 ## Entry point
 
-Every command is dispatched from `run` in `cmd/groot/main.go:44`.
+Every command is dispatched from `run` in `cmd/groot/main.go`. `test` lives in `cmd/groot/test.go`.
 
-| Argument | Handler | Location |
-| --- | --- | --- |
-| `scan` | `scan(args, …, "")` | `cmd/groot/main.go:98` |
-| `graph` | `scan(args, …, "mermaid")` | `cmd/groot/main.go:98` |
-| `test` | `testCmd` | `cmd/groot/test.go:25` |
-| `gateway` | `gatewayCmd` | `cmd/groot/main.go:235` |
-| `analyze` | `analyzeCmd` | `cmd/groot/main.go:340` |
-| `policy` | `policyCmd` | `cmd/groot/main.go:384` |
-
-Exit codes are the same everywhere: `0` clean, `1` the command found a problem (scan finding at or above `--fail-on`, failed scenario, critical or high analyze issue), `2` usage or input error.
+Exit codes are the same everywhere: `0` clean; `1` the command found a problem (a failed scenario, a scan finding at or above `--fail-on`, a critical or high analyze issue); `2` usage or input error.
 
 ## Shared building blocks
 
 | Package | Role | Used by |
 | --- | --- | --- |
-| `internal/capability` | Capability classes (admin, exec, destroy, secrets, write, external, untrusted, read) and `ClassifyTool` on tool names | scan, gateway, analyze |
-| `internal/policy` | Policy file, `Decide`, rate limits, model allowlist and budgets | gateway, test |
-| `internal/chaos` | Seeded fault injection (`Pick`) | gateway, test |
-| `internal/attack` | Prompt-injection payloads and the canary | gateway, test |
-| `internal/audit` | JSONL events, `Write`, `Read`, `Redact` | gateway, analyze, test |
-| `internal/mcp` | JSON-RPC message parsing and replies | gateway |
+| `internal/capability` | Capability classes and `ClassifyTool` on tool names; the AWS action catalogue; RBAC verb classes; MCP server profiles | scan, test, analyze |
+| `internal/policy` | Policy file and `Decide` | test (via the proxies) |
+| `internal/chaos` | Seeded fault injection (`Pick`) | test |
+| `internal/attack` | Injection payloads and the canary | test |
+| `internal/audit` | JSONL events, `Write`, `Read`, `Redact` | test, analyze |
+| `internal/report` | Text, JSON, SARIF, Mermaid and HTML rendering | scan, test |
 
-Because the capability model is shared, a tool the scanner calls "destroy" is the tool the default policy denies and the tool the analyzer treats as a side effect.
+Because the capability model is shared, a tool the scanner calls "destroy" is the tool the analyzer treats as a side effect and the tool `groot policy init` denies.
 
 ### Capability classes
 
 | Class | Meaning | Examples |
 | --- | --- | --- |
-| admin | change permissions or become someone else | `*`, `iam:PassRole`, `sts:AssumeRole`, RBAC `bind`/`escalate`/`impersonate` |
-| exec | run arbitrary code | shell MCP servers, `pods/exec`, `ssm:SendCommand` |
-| destroy | delete data or infrastructure | `*:Delete*`, `ec2:TerminateInstances` |
+| admin | change permissions or become someone else | `iam:PassRole`, `sts:AssumeRole`, RBAC `bind`/`escalate`/`impersonate` |
+| exec | run arbitrary code or compute | shell MCP servers, `pods/exec`, `ssm:SendCommand`, `lambda:InvokeFunction`, `ec2:RunInstances` |
+| destroy | delete data or infrastructure | `s3:DeleteBucket`, `rds:DeleteDBInstance`, RBAC `delete` |
 | secrets | read credentials | `secretsmanager:GetSecretValue`, Kubernetes `secrets` get/list |
 | write | create or modify data | `s3:PutObject`, filesystem or GitHub write tools |
 | external | send data outside | Slack, email, web requests |
@@ -78,31 +74,25 @@ Because the capability model is shared, a tool the scanner calls "destroy" is th
 
 ### Audit event types
 
-`tool_call`, `tool_result`, `tool_flagged`, `tool_changed`, `rejected`, `llm_call`, `attack_injected` (`internal/audit/audit.go:15-22`). Decisions: `forwarded`, `denied`, `would_deny`, `pending_approval`, `rate_limited`, `kill_switch`, `fault_injected`, `budget_exceeded`, `model_denied` (`audit.go:27-35`).
+`tool_call`, `tool_result`, `tool_flagged`, `tool_changed`, `rejected`, `llm_call`, `attack_injected` (`internal/audit/audit.go`). Decisions on calls: `forwarded`, `denied`, `would_deny`, `pending_approval`, `fault_injected`, `budget_exceeded`, `model_denied`.
 
 ## Goals and non-goals
 
-Goals: show every path from an agent to a dangerous capability; enforce least privilege at the tool layer without changing agent code; find unsafe agent behaviour under failure before release; run anywhere, including air-gapped CI, without credentials.
+Goals: find unsafe agent behaviour under attack and failure before release; show every path from an agent to a dangerous capability in AWS and Kubernetes; produce evidence a security team can read; run anywhere, including air-gapped CI, without credentials.
 
-Non-goals for now: prompt-injection classifiers, jailbreak testing, content moderation, live cloud API access, clouds other than AWS, runtimes other than Kubernetes.
+Non-goals: a production proxy or enforcement layer, prompt-injection classifiers, jailbreak testing, content moderation, model-quality evals, live cloud API access, clouds other than AWS (for now).
 
 ## Security of Groot itself
 
-- No credentials: scan reads files; the gateways hold no secrets unless `--inject-keys` is set.
-- Fail closed: invalid policies stop startup, JSON-RPC batches are rejected in enforce mode, the kill switch beats every rule.
-- No secret leakage: secrets found in configs are redacted in findings; sensitive argument keys are redacted in the audit log.
-- Standard library only: the supply chain is the Go toolchain.
-- Bounded resources: file and message size caps; token-bucket rate limits.
+- No credentials: scan reads files; the model proxy forwards the agent's own API key unless the suite sets `inject_keys`.
+- Fail closed: invalid suites and policies stop before any run.
+- No secret leakage: secrets found in configs are redacted in findings and reports; sensitive argument keys are redacted in the audit log.
+- Faults refuse to run in an environment named like production unless the policy sets `allow_prod`.
+- Standard library only: the supply chain is the Go toolchain. The HTML report contains no scripts.
 
 ## Alternatives considered
 
-- **SDK middleware per framework** instead of a proxy: deeper context, but one integration per framework and language. A proxy works for every MCP client.
+- **SDK middleware per framework** instead of proxies: deeper context, but one integration per framework and language. A proxy works for every MCP client and every SDK that honours a base URL.
 - **Live API discovery** instead of snapshots: always current, but needs credentials and a security review. Snapshots remove that barrier.
-- **LLM-based risk judgment**: non-deterministic findings in a security gate erode trust. Deterministic rules decide.
-- **Building on an existing gateway** (Kong, Envoy AI Gateway, LiteLLM): faster start, but the value is the blast-radius graph feeding enforcement, which needs control of both.
-
-## Open questions
-
-- How should approvals reach humans first: Slack, a local CLI queue, or the agent framework's own interrupt mechanism?
-- How far to go on IAM fidelity before relying on AWS's policy simulator through opt-in collectors?
-- Which agent platforms to support as identity sources next?
+- **LLM-based judging**: non-deterministic verdicts in a security gate erode trust. Deterministic rules decide.
+- **A production enforcement proxy**: useful, but a different product with different reliability demands. Groot tests in CI; teams enforce with their own controls, and Groot can test those controls.

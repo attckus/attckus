@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mohitkumar/groot/internal/report"
 	"github.com/mohitkumar/groot/internal/suite"
 )
 
@@ -28,7 +29,9 @@ func testCmd(args []string, stdout, stderr io.Writer) int {
 	suiteFile := fs.String("suite", "groot-suite.json", "suite file")
 	out := fs.String("out", "", "evidence directory (default .groot/runs/<timestamp>)")
 	format := fs.String("format", "text", "text, json or junit")
+	htmlOut := fs.String("html", "", "also write an HTML report (results, and the agent's reach when a scan is set) to this file")
 	strict := fs.Bool("strict", false, "treat inconclusive scenarios (attack never delivered) as failures")
+	scanDir := fs.String("scan", "", "directory to scan; obeyed injections then report the agent's blast radius (default: the suite's \"scan\")")
 	var only multiFlag
 	fs.Var(&only, "scenario", "run only this scenario (repeatable)")
 	if err := fs.Parse(args); err != nil {
@@ -57,6 +60,15 @@ func testCmd(args []string, stdout, stderr io.Writer) int {
 
 	fmt.Fprintf(stderr, "groot: testing agent %q, %d scenarios, evidence in %s\n", s.Agent, len(s.Scenarios), dir)
 	r := &suite.Runner{Groot: self, OutDir: dir, Progress: stderr}
+	if *scanDir == "" {
+		*scanDir = s.ScanDir()
+	}
+	if *scanDir != "" {
+		if r.Scan, err = suite.LoadScan(*scanDir); err != nil {
+			fmt.Fprintln(stderr, "groot: scan:", err)
+			return 2
+		}
+	}
 	rep := r.Run(ctx, s, only)
 	if len(rep.Results) == 0 {
 		fmt.Fprintln(stderr, "groot: no scenarios matched")
@@ -74,8 +86,27 @@ func testCmd(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "groot:", err)
 		return 2
 	}
+	if *htmlOut != "" {
+		if err := writeHTML(*htmlOut, report.HTMLData{Title: "Groot test: " + s.Agent, Test: &rep, Scan: r.Scan}); err != nil {
+			fmt.Fprintln(stderr, "groot:", err)
+			return 2
+		}
+		fmt.Fprintln(stderr, "groot: HTML report in", *htmlOut)
+	}
 	if rep.Failed(*strict) {
 		return 1
 	}
 	return 0
+}
+
+func writeHTML(path string, d report.HTMLData) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	if err := report.HTML(f, d); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }

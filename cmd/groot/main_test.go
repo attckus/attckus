@@ -45,8 +45,11 @@ func TestScanFormats(t *testing.T) {
 	if _, out, _ := runCLI("scan", "--format", "sarif", "--fail-on", "none", demo); !strings.Contains(out, `"version": "2.1.0"`) {
 		t.Error("sarif output")
 	}
-	if code, out, _ := runCLI("graph", demo); code != 0 || !strings.HasPrefix(out, "flowchart LR") {
+	if code, out, _ := runCLI("graph", demo); code != 0 || !strings.HasPrefix(out, "<!doctype html>") {
 		t.Errorf("graph: %d", code)
+	}
+	if _, out, _ := runCLI("scan", "--format", "mermaid", "--fail-on", "none", demo); !strings.HasPrefix(out, "flowchart LR") {
+		t.Error("mermaid output")
 	}
 }
 
@@ -58,10 +61,10 @@ func TestPolicyInitAndCheck(t *testing.T) {
 	if code, _, _ := runCLI("policy", "init", "--out", file); code != 1 {
 		t.Error("init must not overwrite")
 	}
-	if code, out, _ := runCLI("policy", "check", file); code != 0 || !strings.Contains(out, "mode dry-run") {
+	if code, out, _ := runCLI("policy", "check", file); code != 0 || !strings.Contains(out, "mode enforce") {
 		t.Errorf("check: %d %s", code, out)
 	}
-	for _, f := range []string{"policy.json", "chaos-policy.json"} {
+	for _, f := range []string{"test-policy.json"} {
 		if code, _, errs := runCLI("policy", "check", filepath.Join(demo, "gateway", f)); code != 0 {
 			t.Errorf("%s: %s", f, errs)
 		}
@@ -93,7 +96,6 @@ func TestGatewayArgErrors(t *testing.T) {
 		{"gateway"},
 		{"gateway", "stdio", "--policy", "x.json"},
 		{"gateway", "stdio", "--", "true"},
-		{"gateway", "http", "--policy", filepath.Join(demo, "gateway", "policy.json")},
 	}
 	for _, c := range cases {
 		if code, _, _ := runCLI(c...); code != 2 {

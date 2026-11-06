@@ -115,3 +115,26 @@ func TestSeverityParse(t *testing.T) {
 		t.Error("IsProd")
 	}
 }
+
+func TestAnswers(t *testing.T) {
+	gs := []Grant{
+		{Class: capability.Destroy, Text: "rds:DeleteDBInstance on * (admin)", Source: "aws", Via: "role a", Prod: true},
+		{Class: capability.Exec, Text: "lambda:InvokeFunction on * (admin)", Source: "aws", Via: "role a"},
+		{Class: capability.Destroy, Text: "delete pods in ns x (RoleBinding/x)", Source: "k8s", Via: "sa x"},
+	}
+	got := map[string]Answer{}
+	for _, a := range Answers(gs) {
+		got[a.Question] = a
+	}
+	for q, want := range map[string]bool{
+		"Can it delete a database?": true, "Can it delete AWS resources?": true, "Can it delete Kubernetes resources?": true,
+		"Can it run compute without a cap (Lambda, EC2, ECS, pods)?": true, "Can it read secrets?": false,
+	} {
+		if got[q].Yes != want {
+			t.Errorf("%s = %v, want %v", q, got[q].Yes, want)
+		}
+	}
+	if !got["Can it delete a database?"].Prod {
+		t.Error("prod not carried")
+	}
+}

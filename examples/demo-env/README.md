@@ -1,9 +1,11 @@
 # Demo environment
 
-A small company's agents, with realistic mistakes planted. Scan it with:
+A small company's agents, with realistic mistakes planted.
 
 ```bash
-groot scan examples/demo-env
+make demo                                    # both suites and the scan, with HTML reports in bin/
+groot scan examples/demo-env                 # what each agent can reach
+groot graph examples/demo-env > reach.html   # the same, as an HTML report with reach graphs
 ```
 
 | What | Where | What scan should find |
@@ -15,4 +17,11 @@ groot scan examples/demo-env
 
 `cluster/k8s.json` and `cloud/iam.json` stand in for real `kubectl` and `aws iam` exports. All tokens are fake.
 
-`gateway/policy.json` is an enforcing policy for the fake order server; `gateway/chaos-policy.json` drives `make demo-chaos`.
+Two suites test `support-bot` (played by `examples/naive-agent` against `examples/fake-mcp-server`):
+
+| Suite | What it shows |
+| --- | --- |
+| `groot-suite.json` | Baseline, tool outages, slow email, prompt injection, an injection contained by policy, a poisoned tool. Sets `"scan": "."`, so obeyed injections report what support-bot can reach |
+| `groot-suite-compound.json` | Injections that arrive while payments is failing (in an order record, and in the error message itself), each with a control run. The agent runs with `NAIVE_MODE=desperate`, so it obeys only after a failure |
+
+`gateway/test-policy.json` is the permission boundary both suites use: no deletes, no command or SQL execution.

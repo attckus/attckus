@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -35,7 +33,6 @@ const testPolicy = `{
     {"name": "only acme refunds", "agent": "support-bot", "tool": "refund_order", "args": {"order_id": {"prefix": "ACME-"}}, "action": "allow"},
     {"name": "no other refunds", "tool": "refund_order", "action": "deny"}
   ],
-  "rate_limits": [{"tool": "get_order", "per_minute": 3}],
   "tool_checks": {"hide_denied": true, "flag_injection": true, "alert_on_change": true}
 }`
 
@@ -159,39 +156,6 @@ func TestDryRunForwardsButRecords(t *testing.T) {
 	}
 	if evs[1].Type != audit.ToolResult || evs[1].Tool != "delete_order" {
 		t.Errorf("result not audited: %+v", evs[1])
-	}
-}
-
-func TestKillSwitchWinsEvenInDryRun(t *testing.T) {
-	kill := filepath.Join(t.TempDir(), "kill")
-	h := newHarness(t, mustPolicy(t, testPolicy, func(p *policy.Policy) { p.Mode = policy.DryRun; p.KillSwitchFile = kill }))
-	if _, isErr := text(t, h.roundTrip(call(1, "get_order", nil))); isErr {
-		t.Fatal("blocked before kill switch was set")
-	}
-	if err := os.WriteFile(kill, nil, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	got, isErr := text(t, h.roundTrip(call(2, "get_order", nil)))
-	if !isErr || !strings.Contains(got, "kill switch") {
-		t.Errorf("kill switch not enforced: %q", got)
-	}
-}
-
-func TestRateLimit(t *testing.T) {
-	h := newHarness(t, mustPolicy(t, testPolicy, nil))
-	now := time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)
-	h.eng.Now = func() time.Time { return now }
-	for i := 1; i <= 3; i++ {
-		if _, isErr := text(t, h.roundTrip(call(i, "get_order", nil))); isErr {
-			t.Fatalf("call %d limited too early", i)
-		}
-	}
-	if got, isErr := text(t, h.roundTrip(call(4, "get_order", nil))); !isErr || !strings.Contains(got, "per minute") {
-		t.Fatalf("4th call should be limited: %q", got)
-	}
-	now = now.Add(30 * time.Second) // refills 1.5 tokens
-	if _, isErr := text(t, h.roundTrip(call(5, "get_order", nil))); isErr {
-		t.Error("bucket did not refill")
 	}
 }
 
@@ -456,5 +420,25 @@ func TestAttacksOnMCP(t *testing.T) {
 		if ev.Type == audit.ToolFlagged {
 			t.Errorf("groot's own payload must not be flagged as a poisoned server: %+v", ev)
 		}
+	}
+}
+
+func TestAttackRidesFaultResponse(t *testing.T) {
+	p := mustPolicy(t, testPolicy, nil)
+	p.Chaos = &chaos.Config{Enabled: true, Seed: 7, Faults: []chaos.Fault{{Tool: "get_order", Type: chaos.Error, Probability: 1}}}
+	h := newHarness(t, p)
+	h.eng.Chaos, _ = chaos.New(*p.Chaos, "staging")
+	h.eng.Attacks, _ = attack.New([]attack.Attack{{Type: attack.InjectResult, Tool: "get_order", Target: "send_email"}}, "groot-canary-xyz")
+
+	got, isErr := text(t, h.roundTrip(call(1, "get_order", map[string]any{"order_id": "A"})))
+	if !isErr || !strings.Contains(got, "groot-canary-xyz") || !strings.Contains(got, "injected") {
+		t.Errorf("fault reply should keep the error and carry the payload: %q (isError=%v)", got, isErr)
+	}
+	delivered := false
+	for _, ev := range h.auditEvents(t) {
+		delivered = delivered || ev.Type == audit.AttackInjected
+	}
+	if !delivered {
+		t.Error("attack_injected not audited for a fault response")
 	}
 }

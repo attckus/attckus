@@ -3,7 +3,6 @@ package llm
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"io"
 	"math"
 	"net/http"
@@ -298,26 +297,11 @@ func TestBudgetLowersMaxTokensThenRefuses(t *testing.T) {
 	}
 }
 
-func TestModelAllowlistAndKillSwitch(t *testing.T) {
+func TestModelAllowlist(t *testing.T) {
 	h := newHarness(t, Anthropic, anthropicJSON, "application/json", nil)
 	resp, body := h.post(t, "/v1/messages", `{"model":"some-other-model","messages":[]}`, nil)
 	if resp.StatusCode != 403 || !strings.Contains(body, `"permission_error"`) {
 		t.Errorf("model allowlist: %d %s", resp.StatusCode, body)
-	}
-	killed := false
-	h.proxy.Policy.KillSwitchFile = "/kill"
-	h.proxy.KillStat = func(string) error {
-		if killed {
-			return nil
-		}
-		return errors.New("absent")
-	}
-	if resp, _ := h.post(t, "/v1/messages", anthropicReq, nil); resp.StatusCode != 200 {
-		t.Fatal("blocked before kill switch")
-	}
-	killed = true
-	if resp, body := h.post(t, "/v1/messages", anthropicReq, nil); resp.StatusCode != 403 || !strings.Contains(body, "kill switch") {
-		t.Errorf("kill switch: %d %s", resp.StatusCode, body)
 	}
 }
 

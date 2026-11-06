@@ -33,7 +33,7 @@ type Upstream struct {
 	APIKey   string
 }
 
-// Proxy is the LLM gateway HTTP handler.
+// Proxy is the model API proxy HTTP handler.
 //
 //	POST /v1/messages          → Anthropic Messages API
 //	POST /v1/chat/completions  → OpenAI Chat Completions (and compatible servers)
@@ -48,7 +48,6 @@ type Proxy struct {
 	Client    *http.Client
 	Warn      func(string)
 	Now       func() time.Time
-	KillStat  func(string) error // nil means os.Stat-equivalent supplied by caller
 
 	mu    sync.Mutex
 	spent map[string]float64 // agent -> USD
@@ -124,12 +123,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, provider, status, kind, msg)
 	}
 
-	// 1. Kill switch: always enforced.
-	if f := p.Policy.KillSwitchFile; f != "" && p.KillStat != nil && p.KillStat(f) == nil {
-		refuse(http.StatusForbidden, "permission_error", audit.Killed, "groot kill switch is on: all model calls are stopped")
-		return
-	}
-	// 2. Model allowlist.
+	// 1. Model allowlist.
 	if !p.Policy.ModelAllowed(ref) {
 		if !dryRun {
 			refuse(http.StatusForbidden, "permission_error", audit.ModelDenied, fmt.Sprintf("model %s is not allowed by groot policy", ref))
@@ -314,8 +308,6 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // decider applies tool policy to each tool call in a response and audits it.
-// The kill switch and rate limits apply to model calls, not to the tool calls
-// inside them.
 func (p *Proxy) decider(agent, provider string, call *audit.Event) Decider {
 	server := "llm:" + provider
 	dryRun := p.Policy.Mode == policy.DryRun

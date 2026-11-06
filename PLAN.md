@@ -1,108 +1,105 @@
 # Groot plan
 
-Last updated: 2026-11-05 · Owner: Mohit Kumar
+Last updated: 2026-11-06 · Owner: Mohit Kumar
 
 ## Goal
 
-**Security and resilience tests for AI agents, in CI.** Groot runs an agent's own tests under attack (prompt injection in tool results, poisoned tools, rug pulls) and under failure (tool errors, timeouts, provider rate limits), and fails the build when the agent behaves unsafely. `groot scan` adds the static view: what each agent can reach.
+A security and governance tool for teams building AI agents:
 
-The product is lean on purpose: one CLI, one GitHub Action, one verdict per pull request, run against test environments. The always-on production proxy is parked (see "Parked" below) and comes back as a paid tier only if test users ask for it ([ADR 0006](docs/adr/0006-verification-first.md)). Target outcomes, most likely first: a Staff/Principal role in AI security or AI infrastructure; an acqui-hire; a seed round. All three need adoption, visible expertise, and a gap filled that big vendors have not covered.
+1. **Break the agent on purpose.** Run the agent under injected attacks and faults, and fail the build when it does something disastrous: obeys an injection, crosses its permission boundary, repeats a side effect, loops, or runs up cost.
+2. **Show what it can reach.** For each agent: can it delete a database, run unbounded compute (Lambda, EC2, ECS, pods), delete AWS or Kubernetes resources, read secrets, or give itself more access? Each answer comes with the path that makes it true.
+3. **Report it visually.** One HTML report: test results, a reach graph per agent, and findings with fixes.
 
-**Not competing on:** prompt-injection classifiers, jailbreak testing, content moderation (crowded, consolidating through acquisitions).
+Scope for now: AWS and Kubernetes, MCP tools, and the Anthropic and OpenAI APIs.
 
-## Phases and gates
+**Not building:** a production proxy or enforcement layer, prompt-injection classifiers, jailbreak testing, content moderation, model-quality evals. Pass and fail are decided by deterministic rules, never by an LLM.
 
-| Phase | Window | Outcome | Gate to move on |
-| --- | --- | --- | --- |
-| 0. Build and validate | Nov–Dec 2026 | `groot test` with attack and failure scenarios; scan; demo suite; run on 3 real agents | 3 teams run `groot test` on a real agent and keep it in CI |
-| 1. Launch | Jan–Feb 2027 | Research post: popular open-source agents tested with Groot; scenario library; framework quickstarts; GitHub Action; talk proposals; 1–2 responsible disclosures | 500 stars and 3 named users |
-| 2. Depth | Mar–May 2027 | Larger attack library; multi-turn attack scenarios; hosted history of runs (paid); opt-in live collectors for scan | 2,000 stars, 10 companies, 1 paying design partner |
-| 3. Outcome | Jun–Aug 2027 | Conversations with buyers' corporate development; senior interviews; or a seed round | — |
+## Phase 1: Core (done, November 2026)
 
-Dates assume 15–20 hours a week alongside a full-time role.
+**Test**
+- [x] Suite format; one run per scenario through Groot's proxies (stdio wrapper, HTTP proxy, model API proxy); evidence directory per scenario; text, JSON, JUnit
+- [x] Attacks with canary tokens: `inject_result`, `poison_tool`, `rug_pull`, for MCP tools and for tools sent to model APIs
+- [x] Faults: error, timeout, latency, malformed, provider 429; seeded
+- [x] Permission boundary: policy rules (deny, allow, approve by tool and arguments); contained injections
+- [x] Verdicts: retry storm, duplicate side effect, escalation after failure, budget hit, poisoned or changed tools, obeyed injection, forbidden tools, timeout, exit code; inconclusive when the attack was never delivered
+- [x] Attacks under failure: `attack+failure` scenarios, injection carried in a failing tool's error message, control run with a differential
+- [x] Correctness under failure: runaway-loop detector, `at_most_once`, `max_tool_calls`, `max_model_calls`, `max_cost_usd`
+- [x] Impact: an obeyed injection reports what the agent's identity can reach (`scan` in the suite)
 
-## Phase 0 (now)
+**Reach**
+- [x] MCP configs (Claude, Cursor, VS Code); agent code detection (Python, TS/JS, Go); linking code, configs and workloads into agents
+- [x] Kubernetes: workloads, service accounts, RBAC with wildcards and groups, IRSA, automount
+- [x] AWS IAM: inline and managed policies, wildcards, NotAction, explicit deny, conditions, assume-role chains
+- [x] Graph with shortest paths; one finding per agent and risk class; lethal trifecta; config hygiene
+- [x] "Can it ...?" answers per agent (delete a database, delete AWS or Kubernetes resources, unbounded compute, exec, secrets, privilege escalation, data out)
 
-### Done in this repo
-- [x] `groot test`: suite format; per-scenario policy, attacks file and generated MCP config (`GROOT_MCP_CONFIG`); stdio servers wrapped by the gateway, URL servers and model APIs behind in-process gateways; agent run with timeout and process-group kill; verdicts from the audit log; evidence per scenario; text, JSON and JUnit output; `--scenario`, `--strict`
-- [x] Attacks with canary tokens: `inject_result`, `poison_tool`, `rug_pull`, for MCP tools and for tools sent to the Anthropic and OpenAI APIs; groot's own payloads never reported as poisoned servers
-- [x] Verdict rules: retry storm, duplicate side effect, escalation after failure, budget hit, poisoned or changed real tools, obeyed injection (with "contained by policy"), forbidden tools, timeout, exit code; inconclusive when an attack was never delivered
-- [x] Demo suite with 6 scenarios and a deliberately unsafe agent; CI checks every verdict
-- [x] Capability model shared by scanner, gateway and analyzer
-- [x] MCP config parsing (Claude, Cursor, VS Code formats); hardcoded secrets with redaction; unpinned packages; plain-HTTP remotes; known-server profiles
-- [x] Agent code detection (Python, TS/JS, Go) and linking code, configs and workloads into agents
-- [x] Kubernetes: workloads, service accounts, RBAC with wildcards and group subjects, IRSA, automount
-- [x] AWS IAM: inline and managed policies, default versions, URL-encoded documents, wildcards, NotAction, explicit deny, conditions, assume-role chains via trust policies
-- [x] Graph with shortest paths; one finding per agent and risk class with the worst path; lethal trifecta
-- [x] Text, JSON, SARIF, Mermaid output; CI exit codes
-- [x] Gateway: policy (globs, argument matchers), dry-run, approvals (held), kill switch, token-bucket rate limits, batch rejection, audit log with redaction
-- [x] tools/list filtering: hide always-denied tools, flag injected instructions and hidden Unicode, detect mid-session definition changes
-- [x] Stdio and Streamable HTTP transports (JSON and SSE)
-- [x] Chaos: error, timeout, latency, malformed; seeded; refuses prod by default
-- [x] Analyzer: retry storms, duplicate side effects, escalation after failure, blocked attempts, flagged and changed tools
-- [x] Demo environment, fake MCP server, naive agent; CI asserts every planted risk is found
-- [x] GitHub Action with SARIF upload
-- [x] LLM gateway (`groot gateway llm`): Anthropic and OpenAI passthrough ported from zoko; tool-call policy on JSON and streaming responses; per-agent budgets; model allowlist; provider chaos (429, 529/503, timeout, latency, malformed); token and cost audit; analyzer cost summary and budget issues
+**Report**
+- [x] HTML report (self-contained, light and dark): summary, scenarios with impact and control outcome, per-agent answers, reach graph, permission table, findings
+- [x] Text, JSON, SARIF and Mermaid for scan; GitHub Action with SARIF upload
 
-### Remaining
-- [ ] Quickstarts that load `GROOT_MCP_CONFIG` in LangGraph, the OpenAI Agents SDK, the Claude Agent SDK and Vercel AI SDK
+## Phase 2: Prove it on real agents (November to December 2026)
+
+Gate: 3 teams run `groot test` on a real agent and keep it in CI.
+
+- [ ] Quickstarts that load `GROOT_MCP_CONFIG` in LangGraph, the OpenAI Agents SDK, the Claude Agent SDK and the Vercel AI SDK
 - [ ] Run `groot test` on 3 real open-source agents; fix whatever breaks
-- [ ] Review employment contract IP and side-project clauses
-- [ ] Run scan on 3 real environments; fix false positives and missed edges
-- [ ] Put the gateway in front of one real MCP server in dry-run for two weeks; tune the default policy
-- [ ] Record a 3-minute demo of `make demo-chaos`
-- [ ] Interview 10 platform/security engineers running agents in production
+- [ ] Run `groot scan` on 3 real environments; fix false positives and missed edges
+- [ ] Repeat runs per scenario (`runs: N`) with a pass rate, since LLM agents vary between runs
+- [ ] Record a 3-minute demo: test, impact, HTML report
+- [ ] Interview 10 platform and security engineers running agents
 - [ ] Final name, domain, LICENSE file; publish
 
-## Phase 1 backlog
+## Phase 3: Deeper testing (January to February 2027)
 
-### Scan
-- [ ] Baseline mode: report only new findings in a PR (`--baseline scan.json`)
-- [ ] Per-repo config: suppressions with reasons, severity overrides, ignored paths
-- [ ] Kubernetes: Pods created via `create pods` as an escalation path (mount any SA in the namespace)
-- [ ] AWS: users and groups; instance profiles; Lambda execution roles as agent identities
-- [ ] Bedrock AgentCore and OpenAI Agents SDK tool definitions as agent sources
-- [ ] More server profiles from real configs; let users add profiles in config
+Gate: 500 stars and 3 named users.
+
+- [ ] **Guardrail testing:** run the same attack suite with and without the policy (or a third-party guardrail) and report what each control caught; builds on the control run
+- [ ] **Incident replay:** turn an audit log, then an OpenTelemetry trace, into a scenario that replays the recorded tool responses, then adds an attack or a fault
+- [ ] Deliver an attack only after the first fault fires, not for the whole run
+- [ ] Idempotency-key awareness: a retry that reuses the key is not a duplicate
+- [ ] Cost baselines per scenario: fail on a jump against the last passing run
+- [ ] Multi-turn attacks; a scenario library for common agent types (support, coding, data)
+- [ ] Tool-result injection checks for documents retrieved and sent back to the model
+
+## Phase 4: Deeper reach (March to April 2027)
+
+Gate: 10 companies using scan or test.
+
+- [ ] Name the resource, not only the action: "can delete the `orders-prod` table", with resource ARNs carried through the graph
+- [ ] Kubernetes: `create pods` as an escalation path (mount any service account in the namespace); Jobs and CronJobs as unbounded compute
+- [ ] AWS: users and groups; instance profiles; Lambda execution roles as agent identities; Bedrock AgentCore agents
+- [ ] AWS: SCPs, permission boundaries, session policies, resource-based policies (S3 bucket policies, KMS key policies)
+- [ ] Baseline mode: report only new findings in a pull request (`--baseline scan.json`)
+- [ ] Per-repo config: suppressions with reasons, severity overrides, ignored paths, custom MCP server profiles
 - [ ] Probe mode: start a stdio MCP server in a sandbox and list its real tools
 
-### Gateway
-- [ ] LLM gateway: OpenAI Responses API and Bedrock/Vertex routes; per-model fallbacks (zoko's fallback chain) as an opt-in
-- [ ] LLM gateway: run injection checks on tool results and retrieved documents sent back to the model
-- [ ] LLM gateway: persist spend across restarts (budgets are in memory today)
-- [ ] Approval workflow: pending queue file and `groot approve <id>`; Slack webhook in phase 2
-- [ ] Policy generation from scan results (`groot policy suggest`)
-- [ ] OpenTelemetry spans for each tool call
-- [ ] Benchmarks in CI (target: under 1 ms added latency per call)
+## Phase 5: Reporting and launch (May to June 2027)
 
-### Launch
-- [ ] Scan 50 public repos with MCP configs; publish aggregate results (no names before disclosure)
+Gate: 2,000 stars and 1 paying design partner.
+
+- [ ] Report history: trend of failures and findings across runs; diff against the last run
+- [ ] Policy suggestions from scan results: the narrowest policy that keeps the tests passing
+- [ ] Research post: popular open-source agents tested with Groot; 1 or 2 responsible disclosures
 - [ ] Docs site with the demo, the threat model and the rule catalogue
-- [ ] Submit talks: KubeCon, BSides, fwd:cloudsec, local AI security meetups
+- [ ] Talks: KubeCon, BSides, fwd:cloudsec, local AI security meetups
 
-## Parked: production enforcement
+## Later
 
-The gateways work as an always-on proxy today (`groot gateway stdio|http|llm`), but this mode is a preview and gets no new features until test users ask: approval workflows, a central policy server, persistent budgets, HA deployment, Kubernetes sidecar. It is the natural paid tier ("enforce in production what you tested in CI").
-
-## Phase 2 backlog
-- [ ] Opt-in live collectors (AWS SDK, Kubernetes API) behind read-only roles
-- [ ] SCPs, permission boundaries, session policies, resource-based policies (S3 bucket policies, KMS key policies)
-- [ ] GCP IAM and Workload Identity
-- [ ] Central policy server and fleet view of gateways (paid)
-- [ ] Chaos scenarios library and reports (paid)
+- GCP IAM and Workload Identity
+- Opt-in live collectors (AWS SDK, Kubernetes API) behind read-only roles
+- Hosted run history (paid)
 
 ## Decisions
-- Offline snapshots, not live API access ([ADR 0001](docs/adr/0001-offline-snapshots.md))
-- Gateway as a transparent MCP proxy, not an SDK ([ADR 0002](docs/adr/0002-gateway-as-proxy.md))
-- Standard library only ([ADR 0003](docs/adr/0003-stdlib-only.md))
-- One shared capability model for scan, gateway and analyzer ([ADR 0004](docs/adr/0004-shared-capability-model.md))
-- Reuse zoko's model passthrough for the LLM gateway, rewritten without dependencies ([ADR 0005](docs/adr/0005-reuse-zoko-passthrough.md))
-- Verification first: `groot test` is the product, the production proxy is parked ([ADR 0006](docs/adr/0006-verification-first.md))
-- LLMs never decide pass or fail; detection is deterministic
+
+- **Test, not enforce.** Groot proxies only exist inside a test run. No production proxy.
+- **Offline snapshots** for scan, not live API access: no credentials and no security review needed to try it.
+- **Proxies, not SDK hooks** for tests: the agent is unmodified and any MCP client works.
+- **One capability model** shared by scan, tests and analysis: a tool the scanner calls "destroy" is the tool the analyzer treats as a side effect.
+- **Standard library only:** the supply chain is the Go toolchain.
+- **Deterministic verdicts:** LLMs never decide pass or fail.
 
 ## Open questions
-- Which framework integrations matter most to early users (LangGraph, OpenAI Agents SDK, Bedrock)?
-- Should the gateway ship as a sidecar container for Kubernetes in phase 1?
-- Pricing unit for the paid tier: per gateway, per agent, or per environment?
 
-## Previous direction
-The resilience-testing MVP (static resilience checks, chaos agent, control plane) is preserved at git tag `v0-resilience`.
+- Which framework integrations matter most to early users (LangGraph, OpenAI Agents SDK, Bedrock)?
+- How far to go on IAM fidelity before relying on AWS's policy simulator through opt-in collectors?
+- Pricing unit for a paid tier: per agent or per environment?

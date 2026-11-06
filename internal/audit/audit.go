@@ -28,8 +28,6 @@ const (
 	Denied         = "denied"
 	WouldDeny      = "would_deny" // dry-run
 	PendingApprove = "pending_approval"
-	RateLimited    = "rate_limited"
-	Killed         = "kill_switch"
 	Faulted        = "fault_injected"
 	BudgetExceeded = "budget_exceeded"
 	ModelDenied    = "model_denied"

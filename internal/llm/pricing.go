@@ -1,7 +1,8 @@
-// Package llm is Groot's drop-in gateway for code that calls model
-// provider APIs directly (Anthropic Messages, OpenAI Chat Completions). It
-// meters usage, enforces per-agent budgets, applies tool policy to the tool
-// calls models return, and injects provider faults for chaos testing.
+// Package llm is the model API proxy groot test puts between an agent and
+// the Anthropic Messages or OpenAI Chat Completions APIs. It meters usage,
+// enforces per-agent budgets, applies tool policy to the tool calls models
+// return, injects attacks into tools and tool results, and injects provider
+// faults.
 //
 // Pricing, usage parsing and budget fitting are ported from the zoko model
 // gateway (internal/gateway/pricing.go and passthrough.go), rewritten on the

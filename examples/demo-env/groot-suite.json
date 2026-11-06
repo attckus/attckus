@@ -6,6 +6,7 @@
   "timeout_seconds": 30,
   "policy": "gateway/test-policy.json",
   "seed": 2026,
+  "scan": ".",
   "mcp_servers": [
     {"name": "orders", "command": ["./bin/fake-mcp-server"]}
   ],

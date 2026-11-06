@@ -1,5 +1,6 @@
-// Package gateway is a transparent MCP proxy that enforces policy on tool
-// calls. Engine holds the decision logic; stdio.go and http.go are
+// Package gateway is the MCP proxy groot test puts in front of each MCP
+// server: it applies the policy, faults and attacks to tool calls and writes
+// the audit log. Engine holds the decision logic; stdio.go and http.go are
 // transports that feed it messages.
 package gateway
 
@@ -9,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"regexp"
 	"sync"
 	"time"
@@ -33,13 +33,11 @@ type Engine struct {
 	Warn    func(string) // operator warnings (stderr); nil discards
 	Now     func() time.Time
 
-	mu       sync.Mutex
-	pending  map[string]pendingCall // session|id -> call in flight
-	lists    map[string]bool        // session|id of tools/list requests
-	hashes   map[string]string      // tool name -> definition hash
-	changed  map[string]bool        // tools whose definition changed
-	buckets  map[string]*bucket
-	killStat func(string) (os.FileInfo, error)
+	mu      sync.Mutex
+	pending map[string]pendingCall // session|id -> call in flight
+	lists   map[string]bool        // session|id of tools/list requests
+	hashes  map[string]string      // tool name -> definition hash
+	changed map[string]bool        // tools whose definition changed
 }
 
 type pendingCall struct {
@@ -59,8 +57,7 @@ func New(p *policy.Policy, agent, server string) *Engine {
 	return &Engine{
 		Policy: p, Agent: agent, Server: server, Now: time.Now,
 		pending: map[string]pendingCall{}, lists: map[string]bool{},
-		hashes: map[string]string{}, changed: map[string]bool{}, buckets: map[string]*bucket{},
-		killStat: os.Stat,
+		hashes: map[string]string{}, changed: map[string]bool{},
 	}
 }
 
@@ -115,20 +112,7 @@ func (e *Engine) toolCall(session, agent string, msg *mcp.Message, call mcp.Tool
 	}
 	dryRun := e.Policy.Mode == policy.DryRun
 
-	// 1. Kill switch: always enforced, even in dry-run.
-	if f := e.Policy.KillSwitchFile; f != "" {
-		if _, err := e.killStat(f); err == nil {
-			return block(audit.Killed, "kill_switch", "Blocked by groot: the kill switch is on, all tool calls are stopped.")
-		}
-	}
-	// 2. Rate limit.
-	if limit := e.Policy.RateLimitFor(agent, call.Name); limit > 0 && !e.take(agent+"|"+call.Name, limit) {
-		if !dryRun {
-			return block(audit.RateLimited, "rate_limit", fmt.Sprintf("Blocked by groot: %s exceeded %d calls per minute.", call.Name, limit))
-		}
-		ev.Detail = "rate limit exceeded (dry-run)"
-	}
-	// 3. Tool definition changed mid-session.
+	// 1. Tool definition changed mid-session.
 	e.mu.Lock()
 	changed := e.changed[call.Name]
 	e.mu.Unlock()
@@ -164,11 +148,11 @@ func (e *Engine) toolCall(session, agent string, msg *mcp.Message, call mcp.Tool
 		case chaos.Error, chaos.RateLimit:
 			ev.Decision = audit.Faulted
 			e.Audit.Write(ev)
-			return Outcome{Reply: mcp.ToolResult(msg.ID, f.Message, true)}
+			return Outcome{Reply: mcp.ToolResult(msg.ID, e.faultText(agent, call.Name, f.Message), true)}
 		case chaos.Malformed:
 			ev.Decision = audit.Faulted
 			e.Audit.Write(ev)
-			return Outcome{Reply: mcp.ToolResult(msg.ID, f.Message, false)}
+			return Outcome{Reply: mcp.ToolResult(msg.ID, e.faultText(agent, call.Name, f.Message), false)}
 		case chaos.Timeout:
 			ev.Decision = audit.Faulted
 			e.Audit.Write(ev)
@@ -188,6 +172,19 @@ func (e *Engine) toolCall(session, agent string, msg *mcp.Message, call mcp.Tool
 	}
 	e.Audit.Write(ev)
 	return Outcome{Forward: raw}
+}
+
+// faultText is the text of a faulted reply. An inject_result attack on the
+// failing tool rides in its error message: an agent whose plan is breaking
+// reads error text closely, and error text is often attacker-influenced.
+func (e *Engine) faultText(agent, tool, msg string) string {
+	text := e.Attacks.Result(tool)
+	if text == "" {
+		return msg
+	}
+	e.Audit.Write(audit.Event{Type: audit.AttackInjected, Agent: agent, Server: e.Server, Tool: tool,
+		Detail: string(attack.InjectResult) + " (in fault response)"})
+	return msg + "\n" + text
 }
 
 func (e *Engine) track(session string, msg *mcp.Message, agent, tool, hash string) {
@@ -377,31 +374,4 @@ func hashArgs(args map[string]any) string {
 	b, _ := json.Marshal(args) // map keys are sorted, so this is canonical
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:6])
-}
-
-// bucket is a token bucket refilled continuously.
-type bucket struct {
-	tokens float64
-	last   time.Time
-}
-
-func (e *Engine) take(key string, perMinute int) bool {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	now := e.Now()
-	b, ok := e.buckets[key]
-	if !ok {
-		b = &bucket{tokens: float64(perMinute), last: now}
-		e.buckets[key] = b
-	}
-	b.tokens += now.Sub(b.last).Minutes() * float64(perMinute)
-	if b.tokens > float64(perMinute) {
-		b.tokens = float64(perMinute)
-	}
-	b.last = now
-	if b.tokens < 1 {
-		return false
-	}
-	b.tokens--
-	return true
 }

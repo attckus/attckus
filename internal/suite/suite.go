@@ -29,7 +29,10 @@ type Suite struct {
 	Env            map[string]string `json:"env,omitempty"`
 	TimeoutSeconds int               `json:"timeout_seconds,omitempty"`
 	// Policy is an optional base policy file; scenarios add faults and attacks.
-	Policy     string     `json:"policy,omitempty"`
+	Policy string `json:"policy,omitempty"`
+	// Scan is a directory for groot scan, relative to the suite file. When
+	// set, obeyed injections report what the agent's identity can reach.
+	Scan       string     `json:"scan,omitempty"`
 	Seed       uint64     `json:"seed,omitempty"`
 	MCPServers []Server   `json:"mcp_servers,omitempty"`
 	LLM        *LLMTarget `json:"llm,omitempty"`
@@ -58,11 +61,21 @@ type Scenario struct {
 	Faults      []chaos.Fault   `json:"faults,omitempty"`
 	Attacks     []attack.Attack `json:"attacks,omitempty"`
 	Expect      Expect          `json:"expect,omitempty"`
+	// Control, on a scenario with both faults and attacks, also runs the
+	// same attacks without the faults and reports whether the failure
+	// changed what the agent obeyed.
+	Control bool `json:"control,omitempty"`
 }
 
-// Kind is attack, failure or baseline, from what the scenario does.
+// KindCompound is a scenario that attacks the agent while tools are failing.
+const KindCompound = "attack+failure"
+
+// Kind is attack, failure, attack+failure or baseline, from what the
+// scenario does.
 func (s Scenario) Kind() string {
 	switch {
+	case len(s.Attacks) > 0 && len(s.Faults) > 0:
+		return KindCompound
 	case len(s.Attacks) > 0:
 		return "attack"
 	case len(s.Faults) > 0:
@@ -84,6 +97,14 @@ type Expect struct {
 	// AllowContained passes an obeyed injection when policy blocked every
 	// resulting call (the agent is vulnerable, the policy is not).
 	AllowContained bool `json:"allow_contained,omitempty"`
+	// AtMostOnce lists tools that may succeed at most once per run, whatever
+	// their arguments: a refund, a payment, an email. It catches the
+	// double-charge that a retry with a fresh id slips past.
+	AtMostOnce []string `json:"at_most_once,omitempty"`
+	// MaxToolCalls, MaxModelCalls and MaxCostUSD cap a run; zero means no cap.
+	MaxToolCalls  int     `json:"max_tool_calls,omitempty"`
+	MaxModelCalls int     `json:"max_model_calls,omitempty"`
+	MaxCostUSD    float64 `json:"max_cost_usd,omitempty"`
 }
 
 var nameRe = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
@@ -139,6 +160,9 @@ func (s *Suite) validate() error {
 			return fmt.Errorf("scenario names must be present and unique (%q)", sc.Name)
 		}
 		names[sc.Name] = true
+		if sc.Control && sc.Kind() != KindCompound {
+			return fmt.Errorf("scenario %q: control needs both faults and attacks", sc.Name)
+		}
 		cfg := chaos.Config{Faults: sc.Faults}
 		if err := cfg.Validate(); err != nil {
 			return fmt.Errorf("scenario %q: %w", sc.Name, err)
@@ -151,6 +175,9 @@ func (s *Suite) validate() error {
 	}
 	return nil
 }
+
+// ScanDir is the resolved scan directory, or "" when none is configured.
+func (s *Suite) ScanDir() string { return s.path(s.Scan) }
 
 // path resolves p relative to the suite file.
 func (s *Suite) path(p string) string {

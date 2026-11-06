@@ -1,5 +1,5 @@
 name: groot
-description: Security and resilience tests for AI agents (groot test), plus a blast-radius scan reported to GitHub code scanning.
+description: Break your AI agents under attack and failure (groot test), and scan what they can reach in AWS and Kubernetes, with HTML reports and code-scanning results.
 branding:
   icon: shield
   color: red
@@ -32,7 +32,7 @@ runs:
       run: |
         set +e
         "$RUNNER_TEMP/groot" test --suite "${{ inputs.suite }}" --format junit --out "$RUNNER_TEMP/groot-runs" \
-          > "$RUNNER_TEMP/groot-junit.xml" 2> "$RUNNER_TEMP/groot-progress.txt"
+          --html "$RUNNER_TEMP/groot-report.html" > "$RUNNER_TEMP/groot-junit.xml" 2> "$RUNNER_TEMP/groot-progress.txt"
         echo "exit=$?" >> "$GITHUB_OUTPUT"
         { echo '### groot test'; echo '```'; cat "$RUNNER_TEMP/groot-progress.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
     - name: Upload test evidence
@@ -42,6 +42,7 @@ runs:
         name: groot-test-evidence
         path: |
           ${{ runner.temp }}/groot-junit.xml
+          ${{ runner.temp }}/groot-report.html
           ${{ runner.temp }}/groot-runs
     - name: Scan
       id: scan
@@ -51,6 +52,13 @@ runs:
         "$RUNNER_TEMP/groot" scan --format sarif --fail-on "${{ inputs.fail-on }}" "${{ inputs.path }}" > "$RUNNER_TEMP/groot.sarif"
         echo "exit=$?" >> "$GITHUB_OUTPUT"
         "$RUNNER_TEMP/groot" scan --fail-on none "${{ inputs.path }}" >> "$GITHUB_STEP_SUMMARY" || true
+        "$RUNNER_TEMP/groot" graph "${{ inputs.path }}" > "$RUNNER_TEMP/groot-reach.html" || true
+    - name: Upload reach report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: groot-reach-report
+        path: ${{ runner.temp }}/groot-reach.html
     - name: Upload SARIF
       if: inputs.upload-sarif == 'true'
       uses: github/codeql-action/upload-sarif@v3

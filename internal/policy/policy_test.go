@@ -14,7 +14,6 @@ func TestParseRejectsBadPolicies(t *testing.T) {
 		"regex":       `{"version": 1, "rules": [{"tool": "x", "action": "deny", "args": {"a": {"match": "("}}}]}`,
 		"glob":        `{"version": 1, "rules": [{"tool": "[", "action": "deny"}]}`,
 		"unknown key": `{"version": 1, "rulez": []}`,
-		"rate":        `{"version": 1, "rate_limits": [{"per_minute": 0}]}`,
 		"chaos type":  `{"version": 1, "chaos": {"enabled": true, "faults": [{"type": "meteor", "probability": 1}]}}`,
 		"chaos prob":  `{"version": 1, "chaos": {"enabled": true, "faults": [{"type": "error", "probability": 2}]}}`,
 		"chaos delay": `{"version": 1, "chaos": {"enabled": true, "faults": [{"type": "latency", "probability": 1}]}}`,
@@ -35,8 +34,8 @@ func TestDefaultPolicyRoundTrips(t *testing.T) {
 	if err != nil {
 		t.Fatalf("default policy does not validate: %v\n%s", err, b)
 	}
-	if p.Mode != DryRun {
-		t.Error("default policy must start in dry-run")
+	if p.Mode != Enforce {
+		t.Error("default policy must enforce")
 	}
 	cases := []struct {
 		tool string

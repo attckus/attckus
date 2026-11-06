@@ -1,4 +1,4 @@
-// Package policy defines what agents may do through the gateway. Rules are
+// Package policy defines what agents may do during a test. Rules are
 // evaluated in order and the first match wins; unmatched calls get the
 // default action.
 package policy
@@ -30,26 +30,24 @@ const (
 	DryRun  Mode = "dry-run"
 )
 
-// Policy is the gateway configuration file.
+// Policy is the permission boundary groot test runs the agent inside: which
+// tools it may call, with which arguments, and which need approval.
 type Policy struct {
-	Version        int           `json:"version"`
-	Mode           Mode          `json:"mode"`
-	Default        Action        `json:"default"`
-	Rules          []Rule        `json:"rules"`
-	RateLimits     []RateLimit   `json:"rate_limits,omitempty"`
-	KillSwitchFile string        `json:"kill_switch_file,omitempty"`
-	ToolChecks     *ToolChecks   `json:"tool_checks,omitempty"`
-	Chaos          *chaos.Config `json:"chaos,omitempty"`
-	LLM            *LLMPolicy    `json:"llm,omitempty"`
+	Version    int           `json:"version"`
+	Mode       Mode          `json:"mode"`
+	Default    Action        `json:"default"`
+	Rules      []Rule        `json:"rules"`
+	ToolChecks *ToolChecks   `json:"tool_checks,omitempty"`
+	Chaos      *chaos.Config `json:"chaos,omitempty"`
+	LLM        *LLMPolicy    `json:"llm,omitempty"`
 }
 
-// LLMPolicy applies to the LLM gateway (groot gateway llm). Tool rules
-// above also apply to the tool calls models return.
+// LLMPolicy applies to model API calls during a test. Tool rules above also
+// apply to the tool calls models return.
 type LLMPolicy struct {
 	// Models, if set, is an allowlist of "provider/model" globs.
 	Models []string `json:"models,omitempty"`
-	// Budgets cap spend per agent (first matching glob wins) for the life of
-	// the gateway process.
+	// Budgets cap spend per agent (first matching glob wins) for one scenario.
 	Budgets []Budget `json:"budgets,omitempty"`
 }
 
@@ -85,12 +83,6 @@ type Matcher struct {
 	Match     string  `json:"match,omitempty"`
 	NotMatch  string  `json:"not_match,omitempty"`
 	re, notRe *regexp.Regexp
-}
-
-type RateLimit struct {
-	Agent     string `json:"agent,omitempty"`
-	Tool      string `json:"tool,omitempty"`
-	PerMinute int    `json:"per_minute"`
 }
 
 // Decision is the outcome for one call.
@@ -167,11 +159,6 @@ func (p *Policy) validate() error {
 				}
 			}
 			r.Args[k] = m
-		}
-	}
-	for _, rl := range p.RateLimits {
-		if rl.PerMinute <= 0 {
-			return errors.New("rate_limits: per_minute must be positive")
 		}
 	}
 	if p.Chaos != nil {
@@ -293,23 +280,13 @@ func glob(pattern, s string) bool {
 	return ok
 }
 
-// RateLimitFor returns the first matching per-minute limit, or 0.
-func (p *Policy) RateLimitFor(agent, tool string) int {
-	for _, rl := range p.RateLimits {
-		if glob(rl.Agent, agent) && glob(rl.Tool, tool) {
-			return rl.PerMinute
-		}
-	}
-	return 0
-}
-
-// Default returns a safe starting policy: destructive and execution tools are
-// denied, outbound sends need approval, everything else is allowed, and it
-// starts in dry-run so teams see impact before enforcing.
+// Default returns a starting boundary: destructive and execution tools are
+// denied, SQL is read-only, outbound sends need approval, everything else is
+// allowed. It enforces, so a test shows whether the boundary held.
 func Default() *Policy {
 	return &Policy{
 		Version: 1,
-		Mode:    DryRun,
+		Mode:    Enforce,
 		Default: Allow,
 		Rules: []Rule{
 			{Name: "no command execution", Tool: "*exec*", Action: Deny, Reason: "agents may not run arbitrary commands"},
@@ -325,8 +302,6 @@ func Default() *Policy {
 			{Name: "approve slack posts", Tool: "*post_message*", Action: Approve, Reason: "outbound messages need a human"},
 			{Name: "approve merges", Tool: "merge*", Action: Approve, Reason: "merges need a human"},
 		},
-		RateLimits:     []RateLimit{{Tool: "*", PerMinute: 120}},
-		KillSwitchFile: "/tmp/groot.kill",
-		ToolChecks:     &ToolChecks{HideDenied: true, FlagInjection: true, AlertOnChange: true},
+		ToolChecks: &ToolChecks{HideDenied: true, FlagInjection: true, AlertOnChange: true},
 	}
 }

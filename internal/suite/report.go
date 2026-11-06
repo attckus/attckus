@@ -31,6 +31,12 @@ func Text(w io.Writer, r Report) {
 			}
 			fmt.Fprintln(w, line)
 		}
+		if d := res.Differential; d != nil {
+			fmt.Fprintf(w, "   control (%s): %s\n", d.Outcome, d.Summary)
+		}
+		if res.Impact != nil {
+			writeImpact(w, res.Impact)
+		}
 		s := res.Summary
 		fmt.Fprintf(w, "   %d tool calls, %d blocked, %d faults", s.Calls, s.Blocked, s.Faults)
 		if s.LLMCalls > 0 {
@@ -40,6 +46,29 @@ func Text(w io.Writer, r Report) {
 	}
 	fmt.Fprintf(w, "\n%d scenarios: %d passed, %d failed, %d inconclusive, %d errors\n",
 		len(r.Results), counts[Pass], counts[Fail], counts[Inconclusive], counts[Error])
+}
+
+func writeImpact(w io.Writer, im *Impact) {
+	verb := "obeyed an injected instruction through"
+	if im.Contained {
+		verb = "tried to obey an injected instruction through"
+	}
+	fmt.Fprintf(w, "   impact %s: %s %s %s\n", strings.ToUpper(im.Severity), im.Agent, verb, strings.Join(im.Obeyed, ", "))
+	if im.Contained {
+		fmt.Fprintln(w, "     policy blocked the call, but the agent's identity still holds this reach:")
+	}
+	for _, it := range im.Reach {
+		fmt.Fprintf(w, "     %s %s  %s\n", strings.ToUpper(it.Severity), it.Rule, it.Detail)
+		if len(it.Path) > 0 {
+			fmt.Fprintf(w, "       path: %s\n", strings.Join(it.Path, " → "))
+		}
+		for _, e := range it.Evidence {
+			fmt.Fprintf(w, "       - %s\n", e)
+		}
+	}
+	if im.Note != "" {
+		fmt.Fprintf(w, "     %s\n", im.Note)
+	}
 }
 
 func badge(status string) string {
@@ -99,6 +128,15 @@ func JUnit(w io.Writer, r Report) error {
 		switch res.Status {
 		case Fail:
 			s.Failures++
+			if d := res.Differential; d != nil {
+				lines = append(lines, "control ("+d.Outcome+"): "+d.Summary)
+			}
+			if im := res.Impact; im != nil {
+				lines = append(lines, fmt.Sprintf("impact %s: %s can reach %d scanned risks", strings.ToUpper(im.Severity), im.Agent, len(im.Reach)))
+				for _, it := range im.Reach {
+					lines = append(lines, "  "+it.Rule+" "+it.Detail)
+				}
+			}
 			tc.Failure = &failure{Message: lines[0], Text: strings.Join(lines, "\n")}
 		case Error:
 			s.Errors++
