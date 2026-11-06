@@ -1,66 +1,76 @@
 # The HTML report
 
 ```
-groot test --html report.html [--scan dir] ...
-groot scan --format html [dir] > report.html
-groot graph [dir] > report.html
+groot test --html report.html [--scan folder] ...
+groot scan --format html [folder] > report.html
+groot graph [folder] > report.html
 ```
 
 ## Use case
 
-A team lead or security reviewer wants one file that shows how an agent did under attack and failure, what it can reach, and what to fix, without installing anything. The file is attached to the CI run, shared in a pull request, or emailed.
+A team lead, a security reviewer or an auditor wants to see, in one place:
 
-`groot graph` is `scan` with the format forced to HTML and the exit-code gate turned off, so it never fails a build. `groot test --html` writes the same report with the test results on top, and with the reach section when the suite names a scan directory.
+- how the agent did when Groot tried to break it;
+- what the agent can reach;
+- what to fix first.
+
+They don't want to install anything or read terminal output. So Groot writes one HTML file that can be attached to a CI run, linked from a pull request, or emailed, and opened in any browser.
+
+The three commands produce the same kind of report:
+
+- `groot graph` is `groot scan --format html` that never fails the build. Use it when you just want the picture.
+- `groot test --html` adds the test results at the top. If the suite has a scan folder, the reach section is included too.
 
 ## Design
 
 ```mermaid
 flowchart LR
-  test["suite.Report (optional)"] --> data[HTMLData]
-  scan["risk.Result (optional)"] --> data
-  data --> tmpl["html/template: report.html.tmpl (embedded)"]
-  scan --> svg["ReachSVG per agent"]
+  test["test results (optional)"] --> data[report data]
+  scan["scan result (optional)"] --> data
+  data --> tmpl["HTML template (built into the binary)"]
+  scan --> svg["one reach diagram per agent"]
   svg --> tmpl
-  tmpl --> file["one self-contained .html"]
+  tmpl --> file["one self-contained .html file"]
 ```
 
-Decisions:
+### Key decisions
 
-- **Self-contained and script-free.** CSS is inline and the graph is inline SVG laid out in Go. No JavaScript, no fonts or assets from the network, so the file opens anywhere, including air-gapped machines and mail clients, and cannot run code. Hover details use SVG `<title>` elements.
-- **Escaped by construction.** Everything goes through `html/template`; the SVG builder escapes every label. Secrets are already redacted upstream.
-- **Status colours always carry a label.** Severity and status use a fixed status palette (critical, serious, warning, good, neutral) with the word next to every dot; node kinds use categorical colours and also carry their kind in the label text ("sa …", "role …", "mcp …"). Light and dark values are chosen separately and follow the viewer's system setting.
+- **One file, no scripts, nothing from the internet.** All styles are inside the file, and the diagram is drawn as SVG by Groot itself. There is no JavaScript and no external font or image. The file opens anywhere, including offline machines and email clients, and it can't run code on the reader's machine. Hovering over parts of the diagram shows details using the browser's built-in tooltips.
+- **Safe text.** All text goes through Go's `html/template`, which escapes it, and the diagram code escapes every label. Passwords and tokens are already hidden before the report is built.
+- **Colour never carries meaning alone.** Severity and status colours always appear next to a word ("critical", "fail"). The colours for kinds of points in the diagram (agent, service account, role, tool server) are backed up by the label text ("sa …", "role …", "mcp …"). This keeps the report readable for colour-blind readers and when printed in black and white.
+- **Light and dark mode.** Both colour sets are designed separately, and the report follows the reader's system setting.
 
-### Sections
+### What's in it
 
-1. **Summary tiles.** Scenarios with a pass/fail bar; failed count; agents scanned; findings by severity with a bar.
-2. **Tests** (when present). One card per scenario: status, kind, duration and call counts, each check, the control-run outcome, and the impact of an obeyed injection with paths.
-3. **What each agent can reach** (when a scan is present). Per agent: the eight "can it ...?" answers with the evidence for each yes; the reach graph; all permissions as a collapsible table.
-4. **Findings.** Per agent, every finding with severity, rule, path, evidence and fix; then the scan notes.
+1. **Summary tiles** at the top: how many scenarios ran, passed and failed (with a bar); how many failed; how many agents were scanned; and how many findings there are of each severity (with a bar).
+2. **Tests** (when present): one card per scenario, with its status, its kind, how long it took and how many calls it made, every check with the reason for any failure, the control-run result, and the impact of any obeyed instruction, including permission paths.
+3. **What each agent can reach** (when a scan is present): one card per agent with the eight yes/no answers and evidence for every "yes"; the reach diagram; and every permission in a table you can expand.
+4. **Findings:** for each agent, every finding with its severity, rule, path, evidence and suggested fix. Then any notes from the scan, such as the limits of the AWS evaluation.
 
-### Reach graph layout
+### How the reach diagram is drawn
 
-`ReachSVG` (`internal/report/graphsvg.go`) draws a left-to-right tree:
+The diagram is drawn by `ReachSVG` in `internal/report/graphsvg.go`. It reads left to right:
 
-- The tree is the BFS shortest-path tree from the agent (`AgentResult.Reach`): each node's parent is the source of the last edge on its path. Column = path length.
-- Each node's capability classes become chips in a final column, most dangerous first, at most four; `read` is dropped when anything stronger exists. Chip colour follows the scan's severity for that class (admin and exec critical; destroy critical on production, else high; secrets, external and untrusted high; write medium).
-- Rows are assigned depth first, and a node's own chips take rows before its children's subtrees, so the long dashed edges to the chip column never cross another node.
-- Edges carry their kind (`runs_as`, `irsa`, `assumes`, `uses`, `credentials`) as hover text.
+- **The agent is on the left.** Each column to the right is one more step away. Service accounts, roles and tool servers appear in the column matching how many steps it takes to reach them by the shortest path.
+- **Lines show how each point is reached.** Every point has exactly one incoming line, from the step before it on its shortest path, so the diagram is a tree and easy to follow. Hovering a line shows how the link works (`runs_as`, `irsa`, `assumes`, `uses`, `credentials`).
+- **On the far right are the powers.** Each service account, role or tool server has up to four boxes on the right, one per kind of power it grants, most dangerous first. Each box shows an example permission and how many more there are. "read" is left out when something stronger is present, to keep the diagram short. The box colour follows the severity of that kind of power: admin and exec critical; destroy critical on production, otherwise high; secrets, external and untrusted high; write medium; read low.
+- **No crossing lines.** Rows are assigned from top to bottom, and each point's own power boxes take rows before its children do. So the dashed lines out to the power column never cross another box.
 
-`groot scan --format mermaid` still renders the graph as Mermaid for pasting into Markdown.
+To paste a diagram into Markdown instead, use `groot scan --format mermaid`.
 
 ## Where the code lives
 
-| Piece | Code |
+| Part | Code |
 | --- | --- |
-| Data and template functions | `HTMLData`, `HTML` in `internal/report/html.go` |
-| Template and styles | `internal/report/report.html.tmpl` (embedded) |
-| Reach graph | `ReachSVG`, `chipsFor`, `chipSeverity` in `internal/report/graphsvg.go` |
-| Wiring | `scan` in `cmd/groot/main.go` (`--format html`, `graph`); `testCmd` and `writeHTML` in `cmd/groot/test.go` (`--html`) |
+| Report data and helper functions for the template | `HTMLData`, `HTML` in `internal/report/html.go` |
+| The template and its styles | `internal/report/report.html.tmpl`, built into the binary |
+| The reach diagram | `ReachSVG`, `chipsFor`, `chipSeverity` in `internal/report/graphsvg.go` |
+| Hooking it into the commands | `scan` in `cmd/groot/main.go` (`--format html`, `graph`); `testCmd` and `writeHTML` in `cmd/groot/test.go` (`--html`) |
 
-## Failure modes
+## When things go wrong
 
-| Situation | Behaviour |
+| Situation | What happens |
 | --- | --- |
-| `--html` path not writable | exit 2 after the run; the other output is already written |
-| Agent with no resolved identities or servers | the card says so instead of drawing a graph |
-| Test without a scan | the report has only the test sections |
+| The `--html` file can't be written | Exit 2 after the run. The normal output has already been written. |
+| An agent with no identities or tool servers found | Its card says so instead of drawing an empty diagram |
+| A test run without a scan | The report contains only the test sections |

@@ -1,108 +1,121 @@
-# Test proxies (internal)
+# The go-betweens used during a test
 
-`groot test` puts a proxy between the agent and everything it talks to. The proxies apply the scenario's policy, faults and attacks, and write the audit log the verdict is computed from. They exist only inside a test run; they are not a production component.
+To test an agent without changing it, `groot test` puts a go-between (a proxy) between the agent and everything it talks to. The go-betweens:
 
-| Agent talks to | Proxy | How the agent is pointed at it |
+- check every call against the scenario's policy;
+- make calls fail when the scenario says so;
+- plant instructions in what the agent sees;
+- write down everything that happens in the audit log, which is what pass or fail is decided from.
+
+They exist only while a test is running. They are not meant to sit in front of a live agent.
+
+| The agent talks to | Go-between | How the agent is pointed at it |
 | --- | --- | --- |
-| a stdio MCP server | `groot gateway stdio … -- <server command>`, a child process | the generated `GROOT_MCP_CONFIG` replaces the server's command |
-| a URL (Streamable HTTP) MCP server | `gateway.HTTPProxy`, in-process on a random local port | `GROOT_MCP_CONFIG` points at the local URL |
-| the Anthropic or OpenAI API | `llm.Proxy`, in-process on a random local port | `ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL` |
+| A local MCP tool server (started as a command) | `groot gateway stdio … -- <the server's command>`, run as a separate process | The MCP config Groot writes (`GROOT_MCP_CONFIG`) starts this instead of the server |
+| A remote MCP tool server (reached by URL) | A small web proxy inside the `groot test` process, on a random local port | The MCP config points at the local address |
+| The Anthropic or OpenAI API | A model API proxy inside the `groot test` process, on a random local port | `ANTHROPIC_BASE_URL` and `OPENAI_BASE_URL` |
 
 ## Design
 
 ```mermaid
 flowchart LR
-  agent[agent under test] -- stdin/stdout --> relay
+  agent[your agent] -- stdin/stdout --> relay
   subgraph stdio[groot gateway stdio]
-    relay[ServeStdio] --> eng[Engine]
+    relay[relay] --> eng[decision engine]
   end
-  relay -- child stdin/stdout --> server[real MCP server]
-  agent -- HTTP --> http[HTTPProxy] --> eng2[Engine] --> remote[remote MCP server]
-  agent -- HTTP --> llm[llm.Proxy] --> api[model API]
-  eng --> log[(audit.jsonl)]
+  relay -- stdin/stdout --> server[real local tool server]
+  agent -- HTTP --> http[web proxy] --> eng2[decision engine] --> remote[real remote tool server]
+  agent -- HTTP --> llm[model API proxy] --> api[Anthropic / OpenAI]
+  eng --> log[(audit log)]
   eng2 --> log
   llm --> log
 ```
 
-The MCP engine (`gateway.Engine`) is shared by both MCP transports. For stdio, two goroutines relay lines:
+### The MCP go-between
 
-- **Agent to server.** Each line goes through `Engine.FromClient`, which returns an `Outcome`: `Forward` (send to the server), `Reply` (answer the agent directly, for example a blocked or faulted call), and an optional `Delay`. Delayed outcomes run in their own goroutine, so one slow call never blocks the stream.
-- **Server to agent.** Each line goes through `Engine.FromServer`, which records results, inspects `tools/list`, and applies attacks.
+Both MCP go-betweens share one **decision engine** (`gateway.Engine`). Only the way messages arrive differs.
 
-### tools/call decision order
+For a local server, Groot starts the real server as a child process and relays lines of text in both directions:
+
+- **From the agent to the server,** each message goes through `Engine.FromClient`. The engine either forwards it to the server, answers the agent directly (for example with "blocked by policy" or a planted failure), or forwards it after a delay. Delayed messages are handled separately, so one slow call never holds up the others.
+- **From the server to the agent,** each message goes through `Engine.FromServer`. The engine records the result, checks tool lists, and plants instructions.
+
+### What happens to a tool call
 
 ```mermaid
 flowchart TD
-  call[tools/call] --> changed{Tool changed and block_changed_tools?}
-  changed -- yes --> blocked[isError result to agent]
-  changed -- no --> pol{Policy: first matching rule}
-  pol -- deny / approve --> blocked
-  pol -- allow --> chaos{Fault for this tool?}
-  chaos -- error / malformed --> faulted["Fault returned to agent (with an inject_result payload, if attacked)"]
+  call[the agent calls a tool] --> changed{Has this tool's description changed, and are changed tools blocked?}
+  changed -- yes --> blocked[the agent gets an error saying why]
+  changed -- no --> pol{What does the policy say? First matching rule wins}
+  pol -- deny or approve --> blocked
+  pol -- allow --> chaos{Should this call fail, per the scenario?}
+  chaos -- "error / garbled" --> faulted["the agent gets the failure (plus a planted instruction, if this tool is attacked)"]
   chaos -- timeout --> faulted
-  chaos -- latency or none --> server[Forward to server]
-  blocked --> audit[(audit)]
+  chaos -- "slow, or no failure" --> server[forwarded to the real server]
+  blocked --> audit[(audit log)]
   faulted --> audit
   server --> audit
 ```
 
-In `dry-run` mode, policy decisions are recorded as `would_deny` and the call is forwarded. JSON-RPC batches are rejected in `enforce` mode and forwarded in `dry-run`.
+A blocked call comes back to the agent as an ordinary tool error with the reason, so the model can see why and react.
 
-### tools/list inspection
+In **dry-run** mode, the policy's decisions are recorded as `would_deny` but the call still goes through. Several requests sent as one batch are refused in enforce mode (Groot inspects calls one at a time) and passed through in dry-run.
 
-On every `tools/list` response, per tool:
+### What happens to a tool list
 
-1. **Flag injection** (`flag_injection`): the description and input schema are matched against patterns ("ignore previous instructions", `<IMPORTANT>`, credential paths, hidden Unicode and so on). Flagged tools are audited and can be hidden (`hide_flagged`). A real server with a flagged tool fails the scenario.
-2. **Detect changes** (`alert_on_change`): SHA-256 of description plus schema; a change mid-session is audited and can block later calls.
-3. **Hide denied** (`hide_denied`): tools a rule always denies are removed, so the model never plans around them.
-4. **Attacks** (`poison_tool`, `rug_pull`) are applied after the checks, so Groot never flags its own payload.
+Whenever a server sends its list of tools, the engine looks at each tool in turn:
 
-### Model API proxy
+1. **Look for planted instructions** (`flag_injection`). The description and input format are checked against patterns such as "ignore previous instructions", `<IMPORTANT>`, paths to credential files, and invisible Unicode characters. A match is recorded, and the tool can be hidden (`hide_flagged`). If one of **your own** servers has such a tool, the scenario fails.
+2. **Look for changes** (`alert_on_change`). A fingerprint of the description is kept. If it changes during the run, that is recorded and can block later calls to the tool.
+3. **Hide forbidden tools** (`hide_denied`). Tools the policy always denies are removed from the list, so the model doesn't plan around them.
+4. **Plant attacks** (`poison_tool`, `rug_pull`). This happens after the checks above, so Groot never reports its own planted instruction as a problem with your server.
 
-`llm.Proxy` forwards Anthropic Messages and OpenAI Chat Completions requests, streaming or not, and:
+### The model API go-between
 
-- applies the policy to every tool call the model returns; a blocked `tool_use` or `tool_calls` entry is replaced by a text note, and if nothing is left to run the stop reason becomes `end_turn` / `stop`;
-- applies attacks to the tools sent to the model (`poison_tool`, `rug_pull`) and to tool results sent back (`inject_result`);
-- injects provider faults (`rate_limit` 429 with retry-after, `error` 529/503, `timeout`, `latency`, `malformed`), matched on `provider/model`;
-- meters tokens and cost per call, enforces the policy's model allowlist and per-agent budgets (lowering `max_tokens` so the worst case fits what is left);
-- forwards the agent's own API key unless the suite sets `inject_keys`.
+`llm.Proxy` passes Anthropic Messages and OpenAI Chat Completions requests through to the real API, both streaming and non-streaming. On the way it:
 
-Prices for Anthropic models are built in; add others with `GROOT_PRICES_FILE` (`{"openai/gpt-5": {"input": 1.25, "output": 10}}`).
+- **applies the policy to tool calls the model asks for.** If the model asks to call a forbidden tool, that request is replaced with a short note. If nothing is left to run, the response is marked as finished, so the agent's loop ends cleanly;
+- **plants attacks** in the tool descriptions sent to the model (`poison_tool`, `rug_pull`) and in tool results sent back to it (`inject_result`);
+- **makes the API fail** as the scenario says: "too many requests" (429 with a retry-after header), "overloaded" (529 or 503), timeouts, slowness, or garbled responses, chosen by `provider/model` pattern;
+- **measures tokens and cost** for every call, allows only the models the policy lists, and enforces each agent's spending budget. It lowers `max_tokens` so that even the most expensive answer fits in what is left;
+- **passes on the agent's own API key,** unless the suite sets `inject_keys`.
+
+Prices for Anthropic models are built in. For other models, put prices in a file and point `GROOT_PRICES_FILE` at it, for example `{"openai/gpt-5": {"input": 1.25, "output": 10}}` (dollars per million tokens).
 
 ## Data flow
 
-| Direction | Message | Engine action | Audit event |
+| Direction | Message | What the engine does | What goes in the audit log |
 | --- | --- | --- | --- |
-| agent to server | `tools/list` request | remember the request ID | none |
-| agent to server | `tools/call` | decide, maybe fault, track start time | `tool_call` (decision, rule, fault, redacted args, args hash); `attack_injected` if a fault reply carries a payload |
-| agent to server | batch | reject (enforce) or forward (dry-run) | `rejected` |
-| agent to server | anything else | forward unchanged | none |
-| server to agent | `tools/call` response | latency, error flag, optional `inject_result` | `tool_result`, `attack_injected` |
-| server to agent | `tools/list` response | flag, hash, hide, optional `poison_tool` / `rug_pull` | `tool_flagged`, `tool_changed`, `attack_injected` |
-| agent to model API | request | allowlist, budget, fault, attacks | `llm_call`, `attack_injected` |
-| model API to agent | response | tool-call policy, usage | `tool_call` per model tool call |
+| Agent to server | Request for the tool list | Remembers the request, to inspect the answer | Nothing |
+| Agent to server | A tool call | Decides, maybe applies a failure, starts a timer | `tool_call` (decision, rule, failure, hidden-where-sensitive arguments, argument fingerprint); `attack_injected` if a failure message carries a planted instruction |
+| Agent to server | Several requests in one batch | Refuses (enforce) or passes through (dry-run) | `rejected` |
+| Agent to server | Anything else | Passes through unchanged | Nothing |
+| Server to agent | A tool result | Records the time taken and whether it was an error; maybe plants an instruction | `tool_result`, `attack_injected` |
+| Server to agent | The tool list | Flags, fingerprints, hides, maybe poisons | `tool_flagged`, `tool_changed`, `attack_injected` |
+| Agent to model API | A request | Checks the model and budget, maybe applies a failure or plants attacks | `llm_call`, `attack_injected` |
+| Model API to agent | A response | Applies the policy to requested tool calls; reads token usage | `tool_call` for each tool the model asked for |
 
-Argument values under keys that look like passwords, tokens or keys are redacted at any depth; the argument hash is computed on the raw arguments so the analyzer can still compare calls.
+Arguments whose names look like passwords, tokens or keys are hidden at any depth. The fingerprint is computed from the full arguments before hiding, so the analysis can still tell whether two calls were identical.
 
 ## Where the code lives
 
-| Piece | Code |
+| Part | Code |
 | --- | --- |
-| Stdio wrapper command | `gatewayCmd`, `gatewayFlags`, `runStdio` in `cmd/groot/main.go` |
-| How the runner wires the proxies | `Runner.runScenario` in `internal/suite/run.go` |
-| Decision logic | `Engine.FromClient`, `toolCall`, `faultText`, `FromServer`, `filterTools` in `internal/gateway/engine.go` |
-| Injection patterns | `InjectionReasons` in `internal/gateway` |
-| Transports | `ServeStdio` in `internal/gateway/stdio.go`; `HTTPProxy` in `internal/gateway/http.go` |
-| Model API proxy | `Proxy` in `internal/llm/proxy.go`; tool-call rewriting in `toolcalls.go`; attacks in `attacks.go`; pricing and usage in `pricing.go`, `usage.go` |
-| Faults | `chaos.New`, `Injector.Pick` in `internal/chaos/chaos.go` |
+| The `groot gateway stdio` command | `gatewayCmd`, `gatewayFlags`, `runStdio` in `cmd/groot/main.go` |
+| How a test sets up the go-betweens | `Runner.runScenario` in `internal/suite/run.go` |
+| The decision engine | `Engine.FromClient`, `toolCall`, `faultText`, `FromServer`, `filterTools` in `internal/gateway/engine.go` |
+| Patterns for planted instructions | `InjectionReasons` in `internal/gateway/engine.go` |
+| Message transport | `ServeStdio` in `internal/gateway/stdio.go`; `HTTPProxy` in `internal/gateway/http.go` |
+| The model API go-between | `Proxy` in `internal/llm/proxy.go`; tool-call rewriting in `toolcalls.go`; attacks in `attacks.go`; prices and usage in `pricing.go` and `usage.go` |
+| Failures | `chaos.New`, `Injector.Pick` in `internal/chaos/chaos.go` |
 | Attacks | `attack.New`, `Description`, `Result` in `internal/attack/attack.go` |
 
-## Failure modes
+## When things go wrong
 
-| Situation | Behaviour |
+| Situation | What happens |
 | --- | --- |
-| Missing or invalid policy | the wrapper exits 2 before the server starts; the scenario errors |
-| Faults with an environment named like production and no `allow_prod` | refused |
-| Server fails to start | the wrapper exits 1; the agent sees the server as unavailable |
-| Unparseable line from the agent | forwarded; the server reports the parse error |
-| Server exits | the wrapper exits with the server's code |
+| The policy is missing or invalid | The stdio go-between exits with code 2 before starting the server; the scenario shows an error |
+| Failures requested in an environment named like production, without `allow_prod` | Refused |
+| The real server won't start | The go-between exits with code 1; the agent sees the server as unavailable |
+| The agent sends a line that isn't valid JSON | Passed through; the server reports the problem |
+| The real server exits | The go-between exits with the server's exit code |

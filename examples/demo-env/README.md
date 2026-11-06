@@ -1,27 +1,43 @@
 # Demo environment
 
-A small company's agents, with realistic mistakes planted.
+This folder is a pretend company that runs three AI agents. Each agent has realistic mistakes planted in its setup, the kind found in real companies, so you can see what Groot finds without pointing it at your own systems.
 
 ```bash
-make demo                                    # both suites and the scan, with HTML reports in bin/
-groot scan examples/demo-env                 # what each agent can reach
-groot graph examples/demo-env > reach.html   # the same, as an HTML report with reach graphs
+make demo                                    # runs both test suites and the scan, and writes HTML reports to bin/
+groot scan examples/demo-env                 # what each agent can reach, as text
+groot graph examples/demo-env > reach.html   # the same, as an HTML report with diagrams
 ```
 
-| What | Where | What scan should find |
+## What's in the folder
+
+| File or folder | What it stands for |
+| --- | --- |
+| `agents/support-bot/`, `agents/report-writer/` | The agents' code and their MCP tool configs |
+| `.mcp.json` | A tool config for the AI assistant in a developer's editor |
+| `cluster/k8s.json` | An export of the company's Kubernetes cluster, as `kubectl get … -o json` would produce |
+| `cloud/iam.json` | An export of the company's AWS permissions, as `aws iam get-account-authorization-details` would produce |
+| `groot-suite.json`, `groot-suite-compound.json` | Two test suites for `support-bot` |
+| `gateway/test-policy.json` | The permission boundary both suites use |
+
+All tokens and account numbers are fake.
+
+## The agents, and what the scan should find
+
+| Agent | Where it lives | What's wrong with it |
 | --- | --- | --- |
-| support-bot (LangGraph + OpenAI) | `agents/support-bot/`, Deployment `support/support-bot` | IRSA role with `s3:*` on `orders-prod` (FL103), can assume `ops-admin` with AdministratorAccess (FL101, FL102), reads secrets via RBAC and IAM (FL104), fetch + Slack + order data = lethal trifecta (FL110), Slack token in config (FL201), unpinned fetch server (FL202) |
-| report-writer (Anthropic) | `agents/report-writer/`, Deployment `analytics/report-writer` | Contained: token not mounted, IAM read-only with a condition, pinned database server. Only a medium write finding from the database server profile |
-| IDE assistant | `.mcp.json` | GitHub server alone is a trifecta (issues are untrusted, comments go out) (FL110), hardcoded GitHub token (FL201), unpinned image (FL202), plain-HTTP internal server (FL203), unknown server (FL204) |
-| checkout | Deployment `shop/checkout` | Has cluster-admin but is not an agent, so it is not reported |
+| **support-bot** (LangGraph and OpenAI) | `agents/support-bot/`, and the Kubernetes Deployment `support/support-bot` | Almost everything. Its AWS role (given through IRSA) has `s3:*` on the production orders bucket, so it can delete production data (FL103). That role can also take on `ops-admin`, which has full admin rights, so it can change permissions and run code anywhere (FL101, FL102). It can read secrets through both Kubernetes and AWS (FL104). It fetches web pages, posts to Slack and reads order data: the lethal trifecta (FL110). Its Slack token is written into its config (FL201), and its fetch server isn't pinned to a version (FL202). |
+| **report-writer** (Anthropic) | `agents/report-writer/`, and the Deployment `analytics/report-writer` | The well-behaved one. Its Kubernetes token isn't mounted, its AWS role can only read, under a condition, and its database server is pinned to a version. The only finding is a medium one: its database tool can change data. |
+| **ide-assistant** | `.mcp.json` at the top of the folder | The GitHub tool server on its own is a lethal trifecta: issues can contain anything an outsider writes, and comments go out to the world (FL110). There's a GitHub token written into the file (FL201), an unpinned image (FL202), an internal server reached over unencrypted HTTP (FL203), and a server Groot doesn't recognise (FL204). |
 
-`cluster/k8s.json` and `cloud/iam.json` stand in for real `kubectl` and `aws iam` exports. All tokens are fake.
+There is also a fourth workload, **checkout** (`shop/checkout`). It has full cluster-admin rights in Kubernetes, but it isn't an AI agent, so Groot correctly leaves it out. Groot only reports on agents.
 
-Two suites test `support-bot` (played by `examples/naive-agent` against `examples/fake-mcp-server`):
+## The test suites
+
+Both suites test `support-bot`. In the tests it is played by `examples/naive-agent`, a small program that behaves badly on purpose. It talks to `examples/fake-mcp-server`, a pretend order system with tools such as `get_order`, `refund_order`, `send_email`, `delete_order` and `execute_sql`.
 
 | Suite | What it shows |
 | --- | --- |
-| `groot-suite.json` | Baseline, tool outages, slow email, prompt injection, an injection contained by policy, a poisoned tool. Sets `"scan": "."`, so obeyed injections report what support-bot can reach |
-| `groot-suite-compound.json` | Injections that arrive while payments is failing (in an order record, and in the error message itself), each with a control run. The agent runs with `NAIVE_MODE=desperate`, so it obeys only after a failure |
+| `groot-suite.json` | Six scenarios: everything working; the payments tool failing (the agent retries in a storm, then switches to raw SQL); a slow email tool (the agent sends the email twice); an instruction planted in an order record (the agent obeys it); the same attack aimed at a tool the policy forbids (the agent obeys, but the policy blocks it); and a poisoned tool description. The suite sets `"scan": "."`, so when the agent obeys a planted instruction, the result says what support-bot's real permissions allow. |
+| `groot-suite-compound.json` | Two scenarios where a planted instruction arrives while the payments tool is failing: once in an order record, and once inside the payment error message itself. Each has a control run without the failure. The agent runs with `NAIVE_MODE=desperate`, which makes it ignore planted instructions until something goes wrong, so both scenarios show `only under failure`. |
 
-`gateway/test-policy.json` is the permission boundary both suites use: no deletes, no command or SQL execution.
+The policy in `gateway/test-policy.json` forbids deleting anything and forbids running commands or SQL.
