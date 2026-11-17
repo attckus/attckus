@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mohitkumar/attckus/internal/capability"
-	"github.com/mohitkumar/attckus/internal/graph"
-	"github.com/mohitkumar/attckus/internal/risk"
+	"github.com/attckus/attckus/internal/capability"
+	"github.com/attckus/attckus/internal/graph"
+	"github.com/attckus/attckus/internal/risk"
 )
 
 // Reach graph layout: a left-to-right tree of the shortest paths from the

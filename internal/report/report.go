@@ -9,12 +9,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mohitkumar/attckus/internal/capability"
-	"github.com/mohitkumar/attckus/internal/graph"
-	"github.com/mohitkumar/attckus/internal/risk"
+	"github.com/attckus/attckus/internal/capability"
+	"github.com/attckus/attckus/internal/graph"
+	"github.com/attckus/attckus/internal/risk"
 )
 
-const toolURI = "https://github.com/mohitkumar/attckus"
+const toolURI = "https://github.com/attckus/attckus"
 
 // Text prints findings grouped by agent.
 func Text(w io.Writer, r *risk.Result) {

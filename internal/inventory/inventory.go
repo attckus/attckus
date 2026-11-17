@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mohitkumar/attckus/internal/identity/aws"
-	"github.com/mohitkumar/attckus/internal/identity/k8s"
+	"github.com/attckus/attckus/internal/identity/aws"
+	"github.com/attckus/attckus/internal/identity/k8s"
 )
 
 // AgentAnnotation marks a Kubernetes workload as an agent explicitly;

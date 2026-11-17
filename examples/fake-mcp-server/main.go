@@ -14,7 +14,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/mohitkumar/attckus/internal/mcptest"
+	"github.com/attckus/attckus/internal/mcptest"
 )
 
 func main() {

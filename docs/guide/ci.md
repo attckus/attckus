@@ -44,7 +44,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # ...set up and start whatever your agent's tests need...
-      - uses: mohitkumar/attckus@main
+      - uses: attckus/attckus@main
         with:
           suite: attckus-suite.json
           path: .

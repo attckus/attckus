@@ -2,7 +2,7 @@
 # "Deploy from a branch" → branch main, folder /docs.
 title: Attckus
 description: Break your AI agents before attackers and outages do, and see what they could damage.
-url: https://mohitkumar.github.io
+url: https://attckus.github.io
 baseurl: /attckus
 
 remote_theme: just-the-docs/just-the-docs@v0.10.1
@@ -28,14 +28,14 @@ mermaid:
   version: "10.9.1"
 
 aux_links:
-  "Attckus on GitHub": https://github.com/Mohitkumar/attckus
+  "Attckus on GitHub": https://github.com/attckus/attckus
 aux_links_new_tab: true
 
 footer_content: "Attckus is open source. Apache-2.0 (intended)."
 
 gh_edit_link: true
 gh_edit_link_text: "Edit this page on GitHub"
-gh_edit_repository: https://github.com/Mohitkumar/attckus
+gh_edit_repository: https://github.com/attckus/attckus
 gh_edit_branch: main
 gh_edit_source: docs
 gh_edit_view_mode: edit

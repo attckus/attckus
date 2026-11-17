@@ -1,3 +1,3 @@
-module github.com/mohitkumar/attckus
+module github.com/attckus/attckus
 
 go 1.24

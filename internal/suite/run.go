@@ -17,14 +17,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mohitkumar/attckus/internal/analyze"
-	"github.com/mohitkumar/attckus/internal/attack"
-	"github.com/mohitkumar/attckus/internal/audit"
-	"github.com/mohitkumar/attckus/internal/chaos"
-	"github.com/mohitkumar/attckus/internal/gateway"
-	"github.com/mohitkumar/attckus/internal/llm"
-	"github.com/mohitkumar/attckus/internal/policy"
-	"github.com/mohitkumar/attckus/internal/risk"
+	"github.com/attckus/attckus/internal/analyze"
+	"github.com/attckus/attckus/internal/attack"
+	"github.com/attckus/attckus/internal/audit"
+	"github.com/attckus/attckus/internal/chaos"
+	"github.com/attckus/attckus/internal/gateway"
+	"github.com/attckus/attckus/internal/llm"
+	"github.com/attckus/attckus/internal/policy"
+	"github.com/attckus/attckus/internal/risk"
 )
 
 // Statuses.

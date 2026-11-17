@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/mohitkumar/attckus/internal/mcp"
+	"github.com/attckus/attckus/internal/mcp"
 )
 
 type Server struct {

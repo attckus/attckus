@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mohitkumar/attckus/internal/inventory"
-	"github.com/mohitkumar/attckus/internal/risk"
+	"github.com/attckus/attckus/internal/inventory"
+	"github.com/attckus/attckus/internal/risk"
 )
 
 func demo(t *testing.T) *risk.Result {

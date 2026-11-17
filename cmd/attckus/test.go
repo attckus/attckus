@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mohitkumar/attckus/internal/report"
-	"github.com/mohitkumar/attckus/internal/suite"
+	"github.com/attckus/attckus/internal/report"
+	"github.com/attckus/attckus/internal/suite"
 )
 
 type multiFlag []string

@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mohitkumar/attckus/internal/capability"
+	"github.com/attckus/attckus/internal/capability"
 )
 
 // MCPServer is one server entry from an MCP client config.

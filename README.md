@@ -29,7 +29,7 @@ Attckus tests the **system around the model**: the tools, the permissions, and h
 - `attckus scan` works **offline**. It reads files you export; it never needs cloud credentials or network access.
 - Supported today: AWS and Kubernetes for permissions; MCP tools and the Anthropic and OpenAI APIs for tests.
 - Status: early. Everything described here works and has tests. See [PLAN.md](PLAN.md) for what comes next, and [docs/design](docs/design/README.md) for how it works inside.
-- **Documentation:** the full user guide (getting started, step-by-step guides, reference, troubleshooting) is at **[mohitkumar.github.io/attckus](https://mohitkumar.github.io/attckus/)**, built from the [`docs/`](docs/) folder.
+- **Documentation:** the full user guide (getting started, step-by-step guides, reference, troubleshooting) is at **[attckus.github.io/attckus](https://attckus.github.io/attckus/)**, built from the [`docs/`](docs/) folder.
 
 ## Words used in this README
 
@@ -367,7 +367,7 @@ The report follows your system's light or dark setting. Hover over a box or line
 ## Running in GitHub Actions
 
 ```yaml
-- uses: mohitkumar/attckus@main
+- uses: attckus/attckus@main
   with:
     suite: attckus-suite.json     # run attckus test; fail the job if any scenario fails
     path: .                     # also scan this folder

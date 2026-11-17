@@ -152,7 +152,7 @@ Open `reach.html` in a browser. Each agent gets a card with its yes/no answers a
 - **IAM users and groups, EC2 instance profiles, and Lambda execution roles** as agent identities.
 - **Google Cloud and Azure.**
 
-Every report includes a note about the AWS limits. These are on the [plan](https://github.com/Mohitkumar/attckus/blob/main/PLAN.md).
+Every report includes a note about the AWS limits. These are on the [plan](https://github.com/attckus/attckus/blob/main/PLAN.md).
 
 ## Use the scan in tests
 

@@ -3,7 +3,7 @@ package risk
 import (
 	"strings"
 
-	"github.com/mohitkumar/attckus/internal/capability"
+	"github.com/attckus/attckus/internal/capability"
 )
 
 // Answer is the reply to one fixed question about what an agent can reach.

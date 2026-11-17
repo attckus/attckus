@@ -5,9 +5,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mohitkumar/attckus/internal/capability"
-	"github.com/mohitkumar/attckus/internal/inventory"
-	"github.com/mohitkumar/attckus/internal/risk"
+	"github.com/attckus/attckus/internal/capability"
+	"github.com/attckus/attckus/internal/inventory"
+	"github.com/attckus/attckus/internal/risk"
 )
 
 // Impact joins a failed test with the scan graph: the agent did something

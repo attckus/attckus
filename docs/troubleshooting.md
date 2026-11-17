@@ -91,4 +91,4 @@ Yes: `attckus scan --format mermaid <folder>` prints a Mermaid diagram that GitH
 
 ## Still stuck?
 
-[Open an issue on GitHub](https://github.com/Mohitkumar/attckus/issues) with the command you ran, the output, and (if you can share it) the scenario's `audit.jsonl` and `agent.log`.
+[Open an issue on GitHub](https://github.com/attckus/attckus/issues) with the command you ran, the output, and (if you can share it) the scenario's `audit.jsonl` and `agent.log`.

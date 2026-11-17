@@ -12,7 +12,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mohitkumar/attckus/internal/chaos"
+	"github.com/attckus/attckus/internal/chaos"
 )
 
 type Action string

@@ -20,7 +20,7 @@ Attckus is a single binary with no dependencies. You need [Go 1.24 or newer](htt
 ### Build from source
 
 ```bash
-git clone https://github.com/Mohitkumar/attckus.git
+git clone https://github.com/attckus/attckus.git
 cd attckus
 make build
 ```

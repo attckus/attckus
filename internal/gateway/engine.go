@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mohitkumar/attckus/internal/attack"
-	"github.com/mohitkumar/attckus/internal/audit"
-	"github.com/mohitkumar/attckus/internal/chaos"
-	"github.com/mohitkumar/attckus/internal/mcp"
-	"github.com/mohitkumar/attckus/internal/policy"
+	"github.com/attckus/attckus/internal/attack"
+	"github.com/attckus/attckus/internal/audit"
+	"github.com/attckus/attckus/internal/chaos"
+	"github.com/attckus/attckus/internal/mcp"
+	"github.com/attckus/attckus/internal/policy"
 )
 
 // Engine decides what happens to each message. Safe for concurrent use.

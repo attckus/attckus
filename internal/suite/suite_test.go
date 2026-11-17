@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mohitkumar/attckus/internal/analyze"
-	"github.com/mohitkumar/attckus/internal/attack"
-	"github.com/mohitkumar/attckus/internal/audit"
+	"github.com/attckus/attckus/internal/analyze"
+	"github.com/attckus/attckus/internal/attack"
+	"github.com/attckus/attckus/internal/audit"
 )
 
 func writeSuite(t *testing.T, body string) string {

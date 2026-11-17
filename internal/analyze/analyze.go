@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mohitkumar/attckus/internal/audit"
-	"github.com/mohitkumar/attckus/internal/capability"
+	"github.com/attckus/attckus/internal/audit"
+	"github.com/attckus/attckus/internal/capability"
 )
 
 // Options tune the detectors.

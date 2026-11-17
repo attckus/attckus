@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mohitkumar/attckus/internal/risk"
-	"github.com/mohitkumar/attckus/internal/suite"
+	"github.com/attckus/attckus/internal/risk"
+	"github.com/attckus/attckus/internal/suite"
 )
 
 //go:embed report.html.tmpl

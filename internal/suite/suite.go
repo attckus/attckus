@@ -13,8 +13,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mohitkumar/attckus/internal/attack"
-	"github.com/mohitkumar/attckus/internal/chaos"
+	"github.com/attckus/attckus/internal/attack"
+	"github.com/attckus/attckus/internal/chaos"
 )
 
 // Suite is a attckus-suite.json file.

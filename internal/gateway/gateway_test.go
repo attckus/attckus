@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mohitkumar/attckus/internal/attack"
-	"github.com/mohitkumar/attckus/internal/audit"
-	"github.com/mohitkumar/attckus/internal/chaos"
-	"github.com/mohitkumar/attckus/internal/mcptest"
-	"github.com/mohitkumar/attckus/internal/policy"
+	"github.com/attckus/attckus/internal/attack"
+	"github.com/attckus/attckus/internal/audit"
+	"github.com/attckus/attckus/internal/chaos"
+	"github.com/attckus/attckus/internal/mcptest"
+	"github.com/attckus/attckus/internal/policy"
 )
 
 const testPolicy = `{

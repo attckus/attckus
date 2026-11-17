@@ -3,7 +3,7 @@ package k8s
 import (
 	"testing"
 
-	"github.com/mohitkumar/attckus/internal/capability"
+	"github.com/attckus/attckus/internal/capability"
 )
 
 const list = `{"apiVersion":"v1","kind":"List","items":[

@@ -3,7 +3,7 @@ package llm
 import (
 	"encoding/json"
 
-	"github.com/mohitkumar/attckus/internal/attack"
+	"github.com/attckus/attckus/internal/attack"
 )
 
 // applyAttacks tampers with a request before it reaches the model: tool

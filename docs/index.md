@@ -12,7 +12,7 @@ Break your AI agents before attackers and outages do, and see what they could da
 {: .fs-6 .fw-300 }
 
 [Get started](getting-started.md){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[View on GitHub](https://github.com/Mohitkumar/attckus){: .btn .fs-5 .mb-4 .mb-md-0 }
+[View on GitHub](https://github.com/attckus/attckus){: .btn .fs-5 .mb-4 .mb-md-0 }
 
 ---
 
@@ -80,4 +80,4 @@ When a test shows that your agent obeyed a planted instruction, Attckus looks th
 
 ## Status
 
-Attckus is early. Everything described in these docs works and has tests. Supported today: AWS and Kubernetes for permissions; MCP tool servers and the Anthropic and OpenAI APIs for tests. See the [plan](https://github.com/Mohitkumar/attckus/blob/main/PLAN.md) for what comes next.
+Attckus is early. Everything described in these docs works and has tests. Supported today: AWS and Kubernetes for permissions; MCP tool servers and the Anthropic and OpenAI APIs for tests. See the [plan](https://github.com/attckus/attckus/blob/main/PLAN.md) for what comes next.

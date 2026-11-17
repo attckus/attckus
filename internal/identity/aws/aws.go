@@ -15,7 +15,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mohitkumar/attckus/internal/capability"
+	"github.com/attckus/attckus/internal/capability"
 )
 
 // Snapshot is the parsed authorization details.
