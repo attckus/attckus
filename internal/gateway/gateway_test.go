@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mohitkumar/groot/internal/attack"
-	"github.com/mohitkumar/groot/internal/audit"
-	"github.com/mohitkumar/groot/internal/chaos"
-	"github.com/mohitkumar/groot/internal/mcptest"
-	"github.com/mohitkumar/groot/internal/policy"
+	"github.com/mohitkumar/attckus/internal/attack"
+	"github.com/mohitkumar/attckus/internal/audit"
+	"github.com/mohitkumar/attckus/internal/chaos"
+	"github.com/mohitkumar/attckus/internal/mcptest"
+	"github.com/mohitkumar/attckus/internal/policy"
 )
 
 const testPolicy = `{
@@ -254,7 +254,7 @@ func TestChaosFaults(t *testing.T) {
 }
 
 // TestStdioEndToEnd runs the stdio transport against the fake server over
-// pipes, the same way `groot gateway stdio` wraps a child process.
+// pipes, the same way `attckus gateway stdio` wraps a child process.
 func TestStdioEndToEnd(t *testing.T) {
 	p := mustPolicy(t, testPolicy, nil)
 	p.Chaos = &chaos.Config{Enabled: true, Seed: 1, Faults: []chaos.Fault{{Tool: "query", Type: chaos.Latency, Probability: 1, DelayMs: 20}}}
@@ -402,10 +402,10 @@ func TestAttacksOnMCP(t *testing.T) {
 	inj, _ := attack.New([]attack.Attack{
 		{Type: attack.PoisonTool, Tool: "get_order", Target: "delete_order"},
 		{Type: attack.InjectResult, Tool: "get_order"},
-	}, "groot-canary-abc")
+	}, "attckus-canary-abc")
 	h.eng.Attacks = inj
 	listed := string(h.roundTrip(list(1)))
-	if !strings.Contains(listed, "groot-canary-abc") {
+	if !strings.Contains(listed, "attckus-canary-abc") {
 		t.Errorf("tools/list not poisoned: %s", listed)
 	}
 	got, _ := text(t, h.roundTrip(call(2, "get_order", map[string]any{"order_id": "A"})))
@@ -413,12 +413,12 @@ func TestAttacksOnMCP(t *testing.T) {
 		t.Errorf("original result lost: %q", got)
 	}
 	resp := string(h.roundTrip(call(3, "get_order", map[string]any{"order_id": "A"})))
-	if !strings.Contains(resp, "groot-canary-abc") {
+	if !strings.Contains(resp, "attckus-canary-abc") {
 		t.Errorf("result not injected: %s", resp)
 	}
 	for _, ev := range h.auditEvents(t) {
 		if ev.Type == audit.ToolFlagged {
-			t.Errorf("groot's own payload must not be flagged as a poisoned server: %+v", ev)
+			t.Errorf("attckus's own payload must not be flagged as a poisoned server: %+v", ev)
 		}
 	}
 }
@@ -428,10 +428,10 @@ func TestAttackRidesFaultResponse(t *testing.T) {
 	p.Chaos = &chaos.Config{Enabled: true, Seed: 7, Faults: []chaos.Fault{{Tool: "get_order", Type: chaos.Error, Probability: 1}}}
 	h := newHarness(t, p)
 	h.eng.Chaos, _ = chaos.New(*p.Chaos, "staging")
-	h.eng.Attacks, _ = attack.New([]attack.Attack{{Type: attack.InjectResult, Tool: "get_order", Target: "send_email"}}, "groot-canary-xyz")
+	h.eng.Attacks, _ = attack.New([]attack.Attack{{Type: attack.InjectResult, Tool: "get_order", Target: "send_email"}}, "attckus-canary-xyz")
 
 	got, isErr := text(t, h.roundTrip(call(1, "get_order", map[string]any{"order_id": "A"})))
-	if !isErr || !strings.Contains(got, "groot-canary-xyz") || !strings.Contains(got, "injected") {
+	if !isErr || !strings.Contains(got, "attckus-canary-xyz") || !strings.Contains(got, "injected") {
 		t.Errorf("fault reply should keep the error and carry the payload: %q (isError=%v)", got, isErr)
 	}
 	delivered := false

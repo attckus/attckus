@@ -7,7 +7,7 @@ permalink: /guide/
 
 # User guide
 
-Step-by-step guides for using Groot on your own agents and your own infrastructure.
+Step-by-step guides for using Attckus on your own agents and your own infrastructure.
 
 If you haven't yet, run the demo first ([Getting started](../getting-started.md)) and skim [Concepts](../concepts.md). The guides assume you know what a scenario, an attack, a fault and a policy are.
 
@@ -15,7 +15,7 @@ If you haven't yet, run the demo first ([Getting started](../getting-started.md)
 
 Follow these in order the first time.
 
-1. **[Connect your agent](connect-your-agent.md):** the one small change that lets Groot sit between your agent and its tools.
+1. **[Connect your agent](connect-your-agent.md):** the one small change that lets Attckus sit between your agent and its tools.
 2. **[Write a test suite](write-a-suite.md):** describe how to run your agent and which scenarios to try.
 3. **[Attacks and failures](attacks-and-failures.md):** choose what to plant and what to break, including attacks during an outage.
 4. **[Set a permission boundary](permission-boundary.md):** write the policy the agent must stay inside.

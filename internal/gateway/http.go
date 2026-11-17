@@ -12,7 +12,7 @@ import (
 
 // AgentHeader lets one HTTP gateway serve several agents; when absent the
 // engine's default agent is used.
-const AgentHeader = "X-Groot-Agent"
+const AgentHeader = "X-Attckus-Agent"
 
 var hopByHop = map[string]bool{
 	"Connection": true, "Keep-Alive": true, "Proxy-Authenticate": true, "Proxy-Authorization": true,

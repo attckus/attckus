@@ -9,9 +9,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mohitkumar/groot/internal/capability"
-	"github.com/mohitkumar/groot/internal/graph"
-	"github.com/mohitkumar/groot/internal/inventory"
+	"github.com/mohitkumar/attckus/internal/capability"
+	"github.com/mohitkumar/attckus/internal/graph"
+	"github.com/mohitkumar/attckus/internal/inventory"
 )
 
 // Severity of a finding.

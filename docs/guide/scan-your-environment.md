@@ -7,7 +7,7 @@ nav_order: 5
 # Scan your environment
 {: .no_toc }
 
-How to find out what each of your agents can reach in Kubernetes and AWS, without giving Groot any credentials.
+How to find out what each of your agents can reach in Kubernetes and AWS, without giving Attckus any credentials.
 
 1. TOC
 {:toc}
@@ -16,7 +16,7 @@ How to find out what each of your agents can reach in Kubernetes and AWS, withou
 
 ## How it works, in one paragraph
 
-`groot scan` reads files from a folder: your agents' code, their MCP configs, and exports of your Kubernetes and AWS permissions. It works out which agents exist, which identities they run as, and what those identities are allowed to do, following chains such as "pod → service account → AWS role → another role". It never calls a cloud API, so it needs no credentials and no network. The cost of that choice is that you export the permissions yourself, which takes two commands.
+`attckus scan` reads files from a folder: your agents' code, their MCP configs, and exports of your Kubernetes and AWS permissions. It works out which agents exist, which identities they run as, and what those identities are allowed to do, following chains such as "pod → service account → AWS role → another role". It never calls a cloud API, so it needs no credentials and no network. The cost of that choice is that you export the permissions yourself, which takes two commands.
 
 ## Step 1: gather the inputs in one folder
 
@@ -31,7 +31,7 @@ my-repo/
   scan/iam.json                     ← AWS export
 ```
 
-The file names of the exports don't matter: Groot recognises them by their content.
+The file names of the exports don't matter: Attckus recognises them by their content.
 
 ### Kubernetes
 
@@ -43,7 +43,7 @@ kubectl get deploy,sts,ds,cronjob,job,sa,role,clusterrole,rolebinding,clusterrol
 
 This exports workloads, service accounts and every role and binding. It needs read access to those objects across all namespaces. It does **not** export secrets or their values.
 
-You can export several clusters into separate files; Groot merges them.
+You can export several clusters into separate files; Attckus merges them.
 
 ### AWS
 
@@ -62,7 +62,7 @@ The exports describe your permissions in detail. Treat them as sensitive: don't 
 
 ### Agent code and MCP configs
 
-These are usually already in your repository. Groot recognises:
+These are usually already in your repository. Attckus recognises:
 
 - **MCP configs** named `.mcp.json`, `mcp.json`, `mcp_config.json` or `claude_desktop_config.json`, including those in `.cursor/` and `.vscode/`;
 - **agent code** in Python, TypeScript/JavaScript and Go that imports a model provider SDK or an agent framework (LangGraph, LangChain, CrewAI, AutoGen, LlamaIndex, Pydantic AI, the OpenAI Agents SDK, the Vercel AI SDK, Mastra, and the Anthropic and OpenAI SDKs).
@@ -70,12 +70,12 @@ These are usually already in your repository. Groot recognises:
 ## Step 2: run the scan
 
 ```bash
-groot scan my-repo/
+attckus scan my-repo/
 ```
 
-## Step 3: check that Groot found your agents
+## Step 3: check that Attckus found your agents
 
-The first line of each section is an agent, followed by where Groot found it:
+The first line of each section is an agent, followed by where Attckus found it:
 
 ```
 ■ support-bot
@@ -84,7 +84,7 @@ The first line of each section is an agent, followed by where Groot found it:
   mcp config agents/support-bot/mcp.json
 ```
 
-Groot links the pieces of one agent together like this:
+Attckus links the pieces of one agent together like this:
 
 1. A folder containing agent code is an agent, named after the folder (`agents/support-bot/` → `support-bot`).
 2. An MCP config in that folder belongs to that agent. A config at the top of the repository, or in `.cursor/` or `.vscode/`, belongs to an agent called `ide-assistant`, your editor's AI assistant.
@@ -97,8 +97,8 @@ Mark the workload in Kubernetes with annotations:
 ```yaml
 metadata:
   annotations:
-    groot.dev/agent: "true"              # this workload is an agent
-    groot.dev/agent-name: "support-bot"  # and this is its name (to join it with the code)
+    attckus.dev/agent: "true"              # this workload is an agent
+    attckus.dev/agent-name: "support-bot"  # and this is its name (to join it with the code)
 ```
 
 Then export again. Workloads that aren't agents, even very powerful ones, are deliberately left out of the report.
@@ -132,7 +132,7 @@ See the full [list of findings](../reference/findings.md) with what each one mea
 ## Step 5: see it as a picture
 
 ```bash
-groot graph my-repo/ > reach.html
+attckus graph my-repo/ > reach.html
 ```
 
 Open `reach.html` in a browser. Each agent gets a card with its yes/no answers and a diagram, read left to right: the agent, then the identities and tool servers it reaches, then on the far right the powers each one grants, coloured by severity.
@@ -152,7 +152,7 @@ Open `reach.html` in a browser. Each agent gets a card with its yes/no answers a
 - **IAM users and groups, EC2 instance profiles, and Lambda execution roles** as agent identities.
 - **Google Cloud and Azure.**
 
-Every report includes a note about the AWS limits. These are on the [plan](https://github.com/Mohitkumar/groot/blob/main/PLAN.md).
+Every report includes a note about the AWS limits. These are on the [plan](https://github.com/Mohitkumar/attckus/blob/main/PLAN.md).
 
 ## Use the scan in tests
 

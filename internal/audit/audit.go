@@ -18,7 +18,7 @@ const (
 	ToolChanged = "tool_changed" // definition changed mid-session
 	Rejected    = "rejected"     // malformed or unsupported message
 	LLMCall     = "llm_call"     // one model API call through the LLM gateway
-	// AttackInjected records adversarial content groot test inserted.
+	// AttackInjected records adversarial content attckus test inserted.
 	AttackInjected = "attack_injected"
 )
 

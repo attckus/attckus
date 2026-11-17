@@ -1,6 +1,6 @@
 # Local preview of the docs site:
 #   cd docs && bundle install && bundle exec jekyll serve
-#   then open http://localhost:4000/groot/
+#   then open http://localhost:4000/attckus/
 #
 # GitHub Pages builds the published site itself and ignores this file. The
 # official "github-pages" gem doesn't support Ruby 4, so for previews we use

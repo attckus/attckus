@@ -6,7 +6,7 @@ nav_order: 6
 
 # The go-betweens used during a test
 
-To test an agent without changing it, `groot test` puts a go-between (a proxy) between the agent and everything it talks to. The go-betweens:
+To test an agent without changing it, `attckus test` puts a go-between (a proxy) between the agent and everything it talks to. The go-betweens:
 
 - check every call against the scenario's policy;
 - make calls fail when the scenario says so;
@@ -17,16 +17,16 @@ They exist only while a test is running. They are not meant to sit in front of a
 
 | The agent talks to | Go-between | How the agent is pointed at it |
 | --- | --- | --- |
-| A local MCP tool server (started as a command) | `groot gateway stdio … -- <the server's command>`, run as a separate process | The MCP config Groot writes (`GROOT_MCP_CONFIG`) starts this instead of the server |
-| A remote MCP tool server (reached by URL) | A small web proxy inside the `groot test` process, on a random local port | The MCP config points at the local address |
-| The Anthropic or OpenAI API | A model API proxy inside the `groot test` process, on a random local port | `ANTHROPIC_BASE_URL` and `OPENAI_BASE_URL` |
+| A local MCP tool server (started as a command) | `attckus gateway stdio … -- <the server's command>`, run as a separate process | The MCP config Attckus writes (`ATTCKUS_MCP_CONFIG`) starts this instead of the server |
+| A remote MCP tool server (reached by URL) | A small web proxy inside the `attckus test` process, on a random local port | The MCP config points at the local address |
+| The Anthropic or OpenAI API | A model API proxy inside the `attckus test` process, on a random local port | `ANTHROPIC_BASE_URL` and `OPENAI_BASE_URL` |
 
 ## Design
 
 ```mermaid
 flowchart LR
   agent[your agent] -- stdin/stdout --> relay
-  subgraph stdio[groot gateway stdio]
+  subgraph stdio[attckus gateway stdio]
     relay[relay] --> eng[decision engine]
   end
   relay -- stdin/stdout --> server[real local tool server]
@@ -41,7 +41,7 @@ flowchart LR
 
 Both MCP go-betweens share one **decision engine** (`gateway.Engine`). Only the way messages arrive differs.
 
-For a local server, Groot starts the real server as a child process and relays lines of text in both directions:
+For a local server, Attckus starts the real server as a child process and relays lines of text in both directions:
 
 - **From the agent to the server,** each message goes through `Engine.FromClient`. The engine either forwards it to the server, answers the agent directly (for example with "blocked by policy" or a planted failure), or forwards it after a delay. Delayed messages are handled separately, so one slow call never holds up the others.
 - **From the server to the agent,** each message goes through `Engine.FromServer`. The engine records the result, checks tool lists, and plants instructions.
@@ -65,7 +65,7 @@ flowchart TD
 
 A blocked call comes back to the agent as an ordinary tool error with the reason, so the model can see why and react.
 
-In **dry-run** mode, the policy's decisions are recorded as `would_deny` but the call still goes through. Several requests sent as one batch are refused in enforce mode (Groot inspects calls one at a time) and passed through in dry-run.
+In **dry-run** mode, the policy's decisions are recorded as `would_deny` but the call still goes through. Several requests sent as one batch are refused in enforce mode (Attckus inspects calls one at a time) and passed through in dry-run.
 
 ### What happens to a tool list
 
@@ -74,7 +74,7 @@ Whenever a server sends its list of tools, the engine looks at each tool in turn
 1. **Look for planted instructions** (`flag_injection`). The description and input format are checked against patterns such as "ignore previous instructions", `<IMPORTANT>`, paths to credential files, and invisible Unicode characters. A match is recorded, and the tool can be hidden (`hide_flagged`). If one of **your own** servers has such a tool, the scenario fails.
 2. **Look for changes** (`alert_on_change`). A fingerprint of the description is kept. If it changes during the run, that is recorded and can block later calls to the tool.
 3. **Hide forbidden tools** (`hide_denied`). Tools the policy always denies are removed from the list, so the model doesn't plan around them.
-4. **Plant attacks** (`poison_tool`, `rug_pull`). This happens after the checks above, so Groot never reports its own planted instruction as a problem with your server.
+4. **Plant attacks** (`poison_tool`, `rug_pull`). This happens after the checks above, so Attckus never reports its own planted instruction as a problem with your server.
 
 ### The model API go-between
 
@@ -86,7 +86,7 @@ Whenever a server sends its list of tools, the engine looks at each tool in turn
 - **measures tokens and cost** for every call, allows only the models the policy lists, and enforces each agent's spending budget. It lowers `max_tokens` so that even the most expensive answer fits in what is left;
 - **passes on the agent's own API key,** unless the suite sets `inject_keys`.
 
-Prices for Anthropic models are built in. For other models, put prices in a file and point `GROOT_PRICES_FILE` at it, for example `{"openai/gpt-5": {"input": 1.25, "output": 10}}` (dollars per million tokens).
+Prices for Anthropic models are built in. For other models, put prices in a file and point `ATTCKUS_PRICES_FILE` at it, for example `{"openai/gpt-5": {"input": 1.25, "output": 10}}` (dollars per million tokens).
 
 ## Data flow
 
@@ -107,7 +107,7 @@ Arguments whose names look like passwords, tokens or keys are hidden at any dept
 
 | Part | Code |
 | --- | --- |
-| The `groot gateway stdio` command | `gatewayCmd`, `gatewayFlags`, `runStdio` in `cmd/groot/main.go` |
+| The `attckus gateway stdio` command | `gatewayCmd`, `gatewayFlags`, `runStdio` in `cmd/attckus/main.go` |
 | How a test sets up the go-betweens | `Runner.runScenario` in `internal/suite/run.go` |
 | The decision engine | `Engine.FromClient`, `toolCall`, `faultText`, `FromServer`, `filterTools` in `internal/gateway/engine.go` |
 | Patterns for planted instructions | `InjectionReasons` in `internal/gateway/engine.go` |

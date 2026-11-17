@@ -1,12 +1,12 @@
-// Command groot tests AI agents by trying to break them, and shows what
+// Command attckus tests AI agents by trying to break them, and shows what
 // they could damage if they did break.
 //
-//	groot test [flags]              run the agent under attacks and faults; judge what it did
-//	groot scan [flags] [dir]        what each agent can reach in AWS, Kubernetes and MCP servers
-//	groot graph [dir]               HTML report with each agent's reach graph
-//	groot analyze [flags] <audit.jsonl>
-//	groot policy init|check
-//	groot gateway stdio [flags] -- <server command...>   (internal: used by groot test)
+//	attckus test [flags]              run the agent under attacks and faults; judge what it did
+//	attckus scan [flags] [dir]        what each agent can reach in AWS, Kubernetes and MCP servers
+//	attckus graph [dir]               HTML report with each agent's reach graph
+//	attckus analyze [flags] <audit.jsonl>
+//	attckus policy init|check
+//	attckus gateway stdio [flags] -- <server command...>   (internal: used by attckus test)
 package main
 
 import (
@@ -23,15 +23,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mohitkumar/groot/internal/analyze"
-	"github.com/mohitkumar/groot/internal/attack"
-	"github.com/mohitkumar/groot/internal/audit"
-	"github.com/mohitkumar/groot/internal/chaos"
-	"github.com/mohitkumar/groot/internal/gateway"
-	"github.com/mohitkumar/groot/internal/inventory"
-	"github.com/mohitkumar/groot/internal/policy"
-	"github.com/mohitkumar/groot/internal/report"
-	"github.com/mohitkumar/groot/internal/risk"
+	"github.com/mohitkumar/attckus/internal/analyze"
+	"github.com/mohitkumar/attckus/internal/attack"
+	"github.com/mohitkumar/attckus/internal/audit"
+	"github.com/mohitkumar/attckus/internal/chaos"
+	"github.com/mohitkumar/attckus/internal/gateway"
+	"github.com/mohitkumar/attckus/internal/inventory"
+	"github.com/mohitkumar/attckus/internal/policy"
+	"github.com/mohitkumar/attckus/internal/report"
+	"github.com/mohitkumar/attckus/internal/risk"
 )
 
 const version = "0.2.0-dev"
@@ -59,7 +59,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	case "policy":
 		return policyCmd(args[1:], stdout, stderr)
 	case "version", "--version":
-		fmt.Fprintln(stdout, "groot", version)
+		fmt.Fprintln(stdout, "attckus", version)
 		return 0
 	case "help", "-h", "--help":
 		usage(stdout)
@@ -71,17 +71,17 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprint(w, `groot: break your AI agents before attackers and outages do, and see what they can reach
+	fmt.Fprint(w, `attckus: break your AI agents before attackers and outages do, and see what they can reach
 
 Usage:
-  groot test  [--suite groot-suite.json] [--format text|json|junit] [--html report.html] [--scan dir]
+  attckus test  [--suite attckus-suite.json] [--format text|json|junit] [--html report.html] [--scan dir]
               [--scenario name] [--out dir] [--strict]
-  groot scan  [--format text|json|sarif|mermaid|html] [--fail-on critical|high|medium|low|none] [dir]
-  groot graph [dir]                      HTML report with each agent's reach graph
-  groot analyze [--format text|json] [--retry-threshold 5] [--window 60s] audit.jsonl
-  groot policy init [--out policy.json]
-  groot policy check policy.json
-  groot version
+  attckus scan  [--format text|json|sarif|mermaid|html] [--fail-on critical|high|medium|low|none] [dir]
+  attckus graph [dir]                      HTML report with each agent's reach graph
+  attckus analyze [--format text|json] [--retry-threshold 5] [--window 60s] audit.jsonl
+  attckus policy init [--out policy.json]
+  attckus policy check policy.json
+  attckus version
 
 Scan reads MCP configs, agent code, and exported snapshots in dir:
   kubectl get deploy,sts,ds,cronjob,job,sa,role,clusterrole,rolebinding,clusterrolebinding -A -o json > k8s.json
@@ -136,7 +136,7 @@ func scan(args []string, stdout, stderr io.Writer, forceFormat string) int {
 	case "mermaid":
 		report.Mermaid(stdout, res)
 	case "html":
-		err = report.HTML(stdout, report.HTMLData{Title: "Groot scan: what your agents can reach", Scan: res})
+		err = report.HTML(stdout, report.HTMLData{Title: "Attckus scan: what your agents can reach", Scan: res})
 	default:
 		fmt.Fprintf(stderr, "unknown format %q\n", *format)
 		return 2
@@ -168,16 +168,16 @@ func (g *gatewayFlags) register(fs *flag.FlagSet) {
 	fs.StringVar(&g.policyFile, "policy", "", "policy file (required)")
 	fs.StringVar(&g.agent, "agent", "agent", "agent name used in rules and audit")
 	fs.StringVar(&g.server, "server-name", "", "upstream server name used in rules and audit (default: derived)")
-	fs.StringVar(&g.auditFile, "audit", "groot-audit.jsonl", "audit log file, appended; '-' for stderr")
+	fs.StringVar(&g.auditFile, "audit", "attckus-audit.jsonl", "audit log file, appended; '-' for stderr")
 	fs.StringVar(&g.env, "env", "dev", "environment name; chaos refuses to run in prod unless the policy allows it")
 	fs.BoolVar(&g.chaos, "chaos", false, "enable the policy's chaos section even if chaos.enabled is false")
-	fs.StringVar(&g.attacksFile, "attacks", "", "attacks file (set by groot test)")
-	fs.StringVar(&g.canary, "canary", "", "canary token for attacks (set by groot test)")
+	fs.StringVar(&g.attacksFile, "attacks", "", "attacks file (set by attckus test)")
+	fs.StringVar(&g.canary, "canary", "", "canary token for attacks (set by attckus test)")
 }
 
 func (g *gatewayFlags) engine(stderr io.Writer) (*gateway.Engine, func(), error) {
 	if g.policyFile == "" {
-		return nil, nil, errors.New("--policy is required (create one with: groot policy init)")
+		return nil, nil, errors.New("--policy is required (create one with: attckus policy init)")
 	}
 	p, err := policy.Load(g.policyFile)
 	if err != nil {
@@ -194,7 +194,7 @@ func (g *gatewayFlags) engine(stderr io.Writer) (*gateway.Engine, func(), error)
 	}
 	e := gateway.New(p, g.agent, g.server)
 	e.Audit = audit.NewWriter(auditOut)
-	e.Warn = func(s string) { fmt.Fprintln(stderr, "groot: warning:", s) }
+	e.Warn = func(s string) { fmt.Fprintln(stderr, "attckus: warning:", s) }
 	if p.Chaos != nil {
 		cfg := *p.Chaos
 		cfg.Enabled = cfg.Enabled || g.chaos
@@ -205,7 +205,7 @@ func (g *gatewayFlags) engine(stderr io.Writer) (*gateway.Engine, func(), error)
 		}
 		e.Chaos = inj
 		if inj != nil {
-			fmt.Fprintf(stderr, "groot: chaos enabled (seed %d, %d faults)\n", cfg.Seed, len(cfg.Faults))
+			fmt.Fprintf(stderr, "attckus: chaos enabled (seed %d, %d faults)\n", cfg.Seed, len(cfg.Faults))
 		}
 	} else if g.chaos {
 		closer()
@@ -227,15 +227,15 @@ func (g *gatewayFlags) engine(stderr io.Writer) (*gateway.Engine, func(), error)
 			return nil, nil, err
 		}
 	}
-	fmt.Fprintf(stderr, "groot: gateway for agent %q, server %q, mode %s\n", g.agent, e.Server, p.Mode)
+	fmt.Fprintf(stderr, "attckus: gateway for agent %q, server %q, mode %s\n", g.agent, e.Server, p.Mode)
 	return e, closer, nil
 }
 
-// gatewayCmd is the stdio wrapper that groot test puts in front of each
+// gatewayCmd is the stdio wrapper that attckus test puts in front of each
 // stdio MCP server. It is not meant to be run by hand.
 func gatewayCmd(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 || args[0] != "stdio" {
-		fmt.Fprintln(stderr, "usage: groot gateway stdio --policy p.json [flags] -- <server command...>   (used by groot test)")
+		fmt.Fprintln(stderr, "usage: attckus gateway stdio --policy p.json [flags] -- <server command...>   (used by attckus test)")
 		return 2
 	}
 	fs := flag.NewFlagSet("gateway stdio", flag.ContinueOnError)
@@ -249,7 +249,7 @@ func gatewayCmd(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	defer stop()
 	cmdArgs := fs.Args()
 	if len(cmdArgs) == 0 {
-		fmt.Fprintln(stderr, "usage: groot gateway stdio --policy p.json -- <server command...>")
+		fmt.Fprintln(stderr, "usage: attckus gateway stdio --policy p.json -- <server command...>")
 		return 2
 	}
 	if g.server == "" {
@@ -257,7 +257,7 @@ func gatewayCmd(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	e, closeAudit, err := g.engine(stderr)
 	if err != nil {
-		fmt.Fprintln(stderr, "groot:", err)
+		fmt.Fprintln(stderr, "attckus:", err)
 		return 2
 	}
 	defer closeAudit()
@@ -269,22 +269,22 @@ func runStdio(ctx context.Context, e *gateway.Engine, cmdArgs []string, stdin io
 	cmd.Stderr = stderr
 	serverIn, err := cmd.StdinPipe()
 	if err != nil {
-		fmt.Fprintln(stderr, "groot:", err)
+		fmt.Fprintln(stderr, "attckus:", err)
 		return 1
 	}
 	serverOut, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Fprintln(stderr, "groot:", err)
+		fmt.Fprintln(stderr, "attckus:", err)
 		return 1
 	}
 	if err := cmd.Start(); err != nil {
-		fmt.Fprintln(stderr, "groot: starting server:", err)
+		fmt.Fprintln(stderr, "attckus: starting server:", err)
 		return 1
 	}
 	serveErr := gateway.ServeStdio(ctx, e, stdin, stdout, serverIn, serverOut)
 	waitErr := cmd.Wait()
 	if serveErr != nil && !errors.Is(serveErr, context.Canceled) {
-		fmt.Fprintln(stderr, "groot:", serveErr)
+		fmt.Fprintln(stderr, "attckus:", serveErr)
 		return 1
 	}
 	var exitErr *exec.ExitError
@@ -307,7 +307,7 @@ func analyzeCmd(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if fs.NArg() != 1 {
-		fmt.Fprintln(stderr, "usage: groot analyze [flags] audit.jsonl")
+		fmt.Fprintln(stderr, "usage: attckus analyze [flags] audit.jsonl")
 		return 2
 	}
 	f, err := os.Open(fs.Arg(0))
@@ -343,7 +343,7 @@ func analyzeCmd(args []string, stdout, stderr io.Writer) int {
 
 func policyCmd(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: groot policy init|check")
+		fmt.Fprintln(stderr, "usage: attckus policy init|check")
 		return 2
 	}
 	switch args[0] {
@@ -372,7 +372,7 @@ func policyCmd(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "check":
 		if len(args) != 2 {
-			fmt.Fprintln(stderr, "usage: groot policy check policy.json")
+			fmt.Fprintln(stderr, "usage: attckus policy check policy.json")
 			return 2
 		}
 		p, err := policy.Load(args[1])

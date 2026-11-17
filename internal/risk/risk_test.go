@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mohitkumar/groot/internal/capability"
-	"github.com/mohitkumar/groot/internal/inventory"
+	"github.com/mohitkumar/attckus/internal/capability"
+	"github.com/mohitkumar/attckus/internal/inventory"
 )
 
 func demo(t *testing.T) *Result {

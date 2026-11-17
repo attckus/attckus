@@ -1,6 +1,6 @@
 // Command naive-agent is a deliberately badly behaved agent for demos. It
 // talks MCP over stdio to the command after "--", or to the first server in
-// the config named by GROOT_MCP_CONFIG (which `groot test` writes), and
+// the config named by ATTCKUS_MCP_CONFIG (which `attckus test` writes), and
 // makes four classic mistakes:
 //
 //  1. follows instructions it finds inside tool results (prompt injection),
@@ -13,9 +13,9 @@
 // something has failed, then reads error text and a fresh order lookup
 // closely and obeys what it finds. That stands in for an LLM that is most
 // compliant when its plan is breaking; it is what the compound scenarios in
-// groot-suite-compound.json measure.
+// attckus-suite-compound.json measure.
 //
-// Run it with `groot test --suite examples/demo-env/groot-suite.json`.
+// Run it with `attckus test --suite examples/demo-env/attckus-suite.json`.
 package main
 
 import (
@@ -32,17 +32,17 @@ import (
 	"time"
 )
 
-// injected matches the instruction groot's attack payload carries.
+// injected matches the instruction attckus's attack payload carries.
 var injected = regexp.MustCompile("call the `([A-Za-z0-9_]+)` tool with the argument value \"([^\"]+)\"")
 
-// serverCommand returns the MCP server command from "--" args or GROOT_MCP_CONFIG.
+// serverCommand returns the MCP server command from "--" args or ATTCKUS_MCP_CONFIG.
 func serverCommand() []string {
 	if len(os.Args) >= 3 && os.Args[1] == "--" {
 		return os.Args[2:]
 	}
-	path := os.Getenv("GROOT_MCP_CONFIG")
+	path := os.Getenv("ATTCKUS_MCP_CONFIG")
 	if path == "" {
-		log.Fatal("usage: naive-agent -- <mcp server command...>   (or set GROOT_MCP_CONFIG)")
+		log.Fatal("usage: naive-agent -- <mcp server command...>   (or set ATTCKUS_MCP_CONFIG)")
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -64,7 +64,7 @@ func serverCommand() []string {
 		}
 	}
 	if len(names) == 0 {
-		log.Fatal("no stdio server in GROOT_MCP_CONFIG")
+		log.Fatal("no stdio server in ATTCKUS_MCP_CONFIG")
 	}
 	sort.Strings(names)
 	s := cfg.MCPServers[names[0]]

@@ -1,4 +1,4 @@
-// Package llm is the model API proxy groot test puts between an agent and
+// Package llm is the model API proxy attckus test puts between an agent and
 // the Anthropic Messages or OpenAI Chat Completions APIs. It meters usage,
 // enforces per-agent budgets, applies tool policy to the tool calls models
 // return, injects attacks into tools and tool results, and injects provider
@@ -34,7 +34,7 @@ type Usage struct {
 
 // defaultPrices are Anthropic first-party list prices (USD/MTok) as of
 // 2026-10, from zoko. Cache writes are the 5-minute TTL rate. Extend or
-// override with GROOT_PRICES_FILE. Models without a price are metered in
+// override with ATTCKUS_PRICES_FILE. Models without a price are metered in
 // tokens only, and a budget cannot be enforced for them.
 var defaultPrices = map[string]Price{
 	"anthropic/claude-fable-5-1":  {Input: 10, Output: 50, CacheRead: 0.25, CacheWrite: 12.5},
@@ -57,14 +57,14 @@ var freeProviders = map[string]bool{"ollama": true, "local": true}
 // PriceTable maps "provider/model" to a price.
 type PriceTable struct{ prices map[string]Price }
 
-// LoadPrices returns the defaults merged with GROOT_PRICES_FILE, a JSON
+// LoadPrices returns the defaults merged with ATTCKUS_PRICES_FILE, a JSON
 // object of {"provider/model": {"input": …, "output": …, …}}.
 func LoadPrices() (*PriceTable, error) {
 	t := &PriceTable{prices: map[string]Price{}}
 	for k, v := range defaultPrices {
 		t.prices[k] = v
 	}
-	if path := os.Getenv("GROOT_PRICES_FILE"); path != "" {
+	if path := os.Getenv("ATTCKUS_PRICES_FILE"); path != "" {
 		b, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("read prices file: %w", err)

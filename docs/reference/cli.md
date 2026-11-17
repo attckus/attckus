@@ -12,35 +12,35 @@ nav_order: 1
 
 ---
 
-## groot test
+## attckus test
 
 Runs every scenario in a suite against your agent and reports the results.
 
 ```
-groot test [--suite groot-suite.json] [--format text|json|junit] [--html file] [--scan folder]
+attckus test [--suite attckus-suite.json] [--format text|json|junit] [--html file] [--scan folder]
            [--scenario name]... [--out folder] [--strict]
 ```
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--suite` | `groot-suite.json` | The suite file to run. |
+| `--suite` | `attckus-suite.json` | The suite file to run. |
 | `--format` | `text` | How to print results on stdout: `text`, `json` or `junit`. |
 | `--html` | (none) | Also write the HTML report to this file. |
 | `--scan` | the suite's `scan` | A folder to scan, so obeyed injections report what the agent can reach. |
 | `--scenario` | all | Run only the scenario with this name. Repeat the flag to run several. |
-| `--out` | `.groot/runs/<date-time>` | Where to keep each scenario's evidence. |
+| `--out` | `.attckus/runs/<date-time>` | Where to keep each scenario's evidence. |
 | `--strict` | off | Treat inconclusive scenarios as failures. |
 
 Progress lines are printed on stderr as each scenario finishes.
 
 **Exit code:** `0` if every scenario passed (or was inconclusive, without `--strict`); `1` if any failed or errored; `2` if the suite is invalid, the scan folder can't be read, no scenario matched `--scenario`, or the output couldn't be written.
 
-## groot scan
+## attckus scan
 
 Reads a folder and reports what each agent can reach.
 
 ```
-groot scan [--format text|json|sarif|mermaid|html] [--fail-on critical|high|medium|low|none] [folder]
+attckus scan [--format text|json|sarif|mermaid|html] [--fail-on critical|high|medium|low|none] [folder]
 ```
 
 | Flag | Default | Meaning |
@@ -53,20 +53,20 @@ Warnings about files that couldn't be read are printed on stderr; the scan conti
 
 **Exit code:** `0` if no finding reaches `--fail-on`; `1` if one does; `2` for a bad flag or an unreadable folder.
 
-## groot graph
+## attckus graph
 
 ```
-groot graph [folder]
+attckus graph [folder]
 ```
 
-The same as `groot scan --format html --fail-on none`: writes the HTML reach report to stdout and always exits `0` when the scan ran.
+The same as `attckus scan --format html --fail-on none`: writes the HTML reach report to stdout and always exits `0` when the scan ran.
 
-## groot analyze
+## attckus analyze
 
-Re-checks an audit log by hand. `groot test` already does this for every scenario.
+Re-checks an audit log by hand. `attckus test` already does this for every scenario.
 
 ```
-groot analyze [--format text|json] [--retry-threshold 5] [--window 60s] audit.jsonl
+attckus analyze [--format text|json] [--retry-threshold 5] [--window 60s] audit.jsonl
 ```
 
 | Flag | Default | Meaning |
@@ -77,38 +77,38 @@ groot analyze [--format text|json] [--retry-threshold 5] [--window 60s] audit.js
 
 **Exit code:** `1` if any critical or high issue is found; `0` otherwise; `2` for a bad flag or an unreadable file.
 
-## groot policy init
+## attckus policy init
 
 Writes a starting policy.
 
 ```
-groot policy init [--out policy.json]
+attckus policy init [--out policy.json]
 ```
 
-Without `--out`, the policy is printed on stdout. With `--out`, it is written to that file. Groot refuses to overwrite an existing file (exit code `1`).
+Without `--out`, the policy is printed on stdout. With `--out`, it is written to that file. Attckus refuses to overwrite an existing file (exit code `1`).
 
-## groot policy check
+## attckus policy check
 
-Validates a policy file with the same checks `groot test` uses.
+Validates a policy file with the same checks `attckus test` uses.
 
 ```
-groot policy check policy.json
+attckus policy check policy.json
 ```
 
 Prints `ok: <n> rules, mode <mode>, default <action>, <failures note>` and exits `0`, or prints the problem and exits `1`.
 
-## groot version
+## attckus version
 
 ```
-groot version
+attckus version
 ```
 
 Prints the version.
 
-## groot gateway stdio (internal)
+## attckus gateway stdio (internal)
 
 ```
-groot gateway stdio --policy p.json [flags] -- <server command...>
+attckus gateway stdio --policy p.json [flags] -- <server command...>
 ```
 
-This is the go-between `groot test` puts in front of local MCP servers, by writing it into the MCP config it gives your agent. You don't need to run it yourself.
+This is the go-between `attckus test` puts in front of local MCP servers, by writing it into the MCP config it gives your agent. You don't need to run it yourself.

@@ -1,20 +1,20 @@
 ---
-title: groot analyze
+title: attckus analyze
 parent: Design
 nav_order: 4
 ---
 
-# groot analyze
+# attckus analyze
 
 ```
-groot analyze [--format text|json] [--retry-threshold 5] [--window 60s] audit.jsonl
+attckus analyze [--format text|json] [--retry-threshold 5] [--window 60s] audit.jsonl
 ```
 
 ## Use case
 
-Every `groot test` scenario leaves an audit log (`audit.jsonl`): a record of every tool call the agent made, what Groot decided about it, which failures were applied, what each tool returned, and every model call. The test runner analyzes this log automatically to decide whether the scenario passes.
+Every `attckus test` scenario leaves an audit log (`audit.jsonl`): a record of every tool call the agent made, what Attckus decided about it, which failures were applied, what each tool returned, and every model call. The test runner analyzes this log automatically to decide whether the scenario passes.
 
-`groot analyze` runs the same analysis by hand. That is useful for a saved evidence folder, for example to try a stricter retry threshold, or to look at the issues on their own without the rest of the test output.
+`attckus analyze` runs the same analysis by hand. That is useful for a saved evidence folder, for example to try a stricter retry threshold, or to look at the issues on their own without the rest of the test output.
 
 It answers these questions about the agent's behaviour:
 
@@ -56,8 +56,8 @@ Checks that need the suite file (`at_most_once`, caps on calls and cost) are don
 
 ### How it works
 
-- **Fingerprints, not raw arguments.** The audit log hides sensitive argument values such as tokens. But each call also carries a short fingerprint (a hash) of its full, unhidden arguments. Comparing fingerprints tells Groot whether two calls were identical without ever storing the secret.
-- **Kinds of power come from tool names.** Groot works out what a tool does from its name, splitting `delete_order` and `deleteOrder` the same way and matching verbs such as delete, send or run. So the analysis doesn't need to ask the tool server anything. Tools that write, delete, send or run things count as actions with side effects. Escalation compares the most dangerous kind of power of each tool.
+- **Fingerprints, not raw arguments.** The audit log hides sensitive argument values such as tokens. But each call also carries a short fingerprint (a hash) of its full, unhidden arguments. Comparing fingerprints tells Attckus whether two calls were identical without ever storing the secret.
+- **Kinds of power come from tool names.** Attckus works out what a tool does from its name, splitting `delete_order` and `deleteOrder` the same way and matching verbs such as delete, send or run. So the analysis doesn't need to ask the tool server anything. Tools that write, delete, send or run things count as actions with side effects. Escalation compares the most dangerous kind of power of each tool.
 - **Order doesn't matter.** Events are sorted by time first, so logs written by several go-betweens at once can be analyzed together.
 - **Dry-run calls.** If the policy is in dry-run mode, a call it would have denied is recorded as `would_deny` and still goes through. Such calls count as blocked (for escalation and blocked attempts), and also as forwarded, because they really did reach the tool.
 
@@ -76,7 +76,7 @@ The output has two parts. The **summary** holds the number of calls forwarded, b
 
 | Part | Code |
 | --- | --- |
-| Flags, output, exit code | `analyzeCmd` in `cmd/groot/main.go` |
+| Flags, output, exit code | `analyzeCmd` in `cmd/attckus/main.go` |
 | Reading the log | `audit.Read` in `internal/audit/audit.go` |
 | The pass over events and the checks afterwards | `Run` in `internal/analyze/analyze.go` |
 | Escalation | `checkEscalation` |

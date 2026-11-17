@@ -11,15 +11,15 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mohitkumar/groot/internal/identity/aws"
-	"github.com/mohitkumar/groot/internal/identity/k8s"
+	"github.com/mohitkumar/attckus/internal/identity/aws"
+	"github.com/mohitkumar/attckus/internal/identity/k8s"
 )
 
 // AgentAnnotation marks a Kubernetes workload as an agent explicitly;
 // AgentNameAnnotation links it to a code directory by name.
 const (
-	AgentAnnotation     = "groot.dev/agent"
-	AgentNameAnnotation = "groot.dev/agent-name"
+	AgentAnnotation     = "attckus.dev/agent"
+	AgentNameAnnotation = "attckus.dev/agent-name"
 )
 
 // llmEnvVars mark a workload as an agent when present in its environment.

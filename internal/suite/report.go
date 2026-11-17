@@ -116,9 +116,9 @@ func JUnit(w io.Writer, r Report) error {
 		Skipped  int        `xml:"skipped,attr"`
 		Cases    []testcase `xml:"testcase"`
 	}
-	s := suite{Name: "groot: " + r.Agent, Tests: len(r.Results)}
+	s := suite{Name: "attckus: " + r.Agent, Tests: len(r.Results)}
 	for _, res := range r.Results {
-		tc := testcase{Name: res.Scenario, Classname: "groot." + res.Kind, Time: fmt.Sprintf("%.3f", float64(res.DurationMs)/1000)}
+		tc := testcase{Name: res.Scenario, Classname: "attckus." + res.Kind, Time: fmt.Sprintf("%.3f", float64(res.DurationMs)/1000)}
 		var lines []string
 		for _, c := range res.Checks {
 			if !c.Pass {

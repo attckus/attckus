@@ -1,6 +1,6 @@
-// Package suite defines groot test suites: an agent command, the MCP
+// Package suite defines attckus test suites: an agent command, the MCP
 // servers and model APIs it uses, and scenarios that put it under failure
-// and attack. The runner (run.go) executes each scenario through the groot
+// and attack. The runner (run.go) executes each scenario through the attckus
 // gateways and turns the audit log into a pass or fail verdict.
 package suite
 
@@ -13,16 +13,16 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mohitkumar/groot/internal/attack"
-	"github.com/mohitkumar/groot/internal/chaos"
+	"github.com/mohitkumar/attckus/internal/attack"
+	"github.com/mohitkumar/attckus/internal/chaos"
 )
 
-// Suite is a groot-suite.json file.
+// Suite is a attckus-suite.json file.
 type Suite struct {
 	Version int    `json:"version"`
 	Agent   string `json:"agent"`
 	// Command runs the agent once (typically its eval or integration test).
-	// It reads GROOT_MCP_CONFIG and, for model APIs, ANTHROPIC_BASE_URL /
+	// It reads ATTCKUS_MCP_CONFIG and, for model APIs, ANTHROPIC_BASE_URL /
 	// OPENAI_BASE_URL.
 	Command        []string          `json:"command"`
 	Dir            string            `json:"dir,omitempty"` // working directory, relative to the suite file
@@ -30,7 +30,7 @@ type Suite struct {
 	TimeoutSeconds int               `json:"timeout_seconds,omitempty"`
 	// Policy is an optional base policy file; scenarios add faults and attacks.
 	Policy string `json:"policy,omitempty"`
-	// Scan is a directory for groot scan, relative to the suite file. When
+	// Scan is a directory for attckus scan, relative to the suite file. When
 	// set, obeyed injections report what the agent's identity can reach.
 	Scan       string     `json:"scan,omitempty"`
 	Seed       uint64     `json:"seed,omitempty"`

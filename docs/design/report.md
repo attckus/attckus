@@ -7,25 +7,25 @@ nav_order: 3
 # The HTML report
 
 ```
-groot test --html report.html [--scan folder] ...
-groot scan --format html [folder] > report.html
-groot graph [folder] > report.html
+attckus test --html report.html [--scan folder] ...
+attckus scan --format html [folder] > report.html
+attckus graph [folder] > report.html
 ```
 
 ## Use case
 
 A team lead, a security reviewer or an auditor wants to see, in one place:
 
-- how the agent did when Groot tried to break it;
+- how the agent did when Attckus tried to break it;
 - what the agent can reach;
 - what to fix first.
 
-They don't want to install anything or read terminal output. So Groot writes one HTML file that can be attached to a CI run, linked from a pull request, or emailed, and opened in any browser.
+They don't want to install anything or read terminal output. So Attckus writes one HTML file that can be attached to a CI run, linked from a pull request, or emailed, and opened in any browser.
 
 The three commands produce the same kind of report:
 
-- `groot graph` is `groot scan --format html` that never fails the build. Use it when you just want the picture.
-- `groot test --html` adds the test results at the top. If the suite has a scan folder, the reach section is included too.
+- `attckus graph` is `attckus scan --format html` that never fails the build. Use it when you just want the picture.
+- `attckus test --html` adds the test results at the top. If the suite has a scan folder, the reach section is included too.
 
 ## Design
 
@@ -41,7 +41,7 @@ flowchart LR
 
 ### Key decisions
 
-- **One file, no scripts, nothing from the internet.** All styles are inside the file, and the diagram is drawn as SVG by Groot itself. There is no JavaScript and no external font or image. The file opens anywhere, including offline machines and email clients, and it can't run code on the reader's machine. Hovering over parts of the diagram shows details using the browser's built-in tooltips.
+- **One file, no scripts, nothing from the internet.** All styles are inside the file, and the diagram is drawn as SVG by Attckus itself. There is no JavaScript and no external font or image. The file opens anywhere, including offline machines and email clients, and it can't run code on the reader's machine. Hovering over parts of the diagram shows details using the browser's built-in tooltips.
 - **Safe text.** All text goes through Go's `html/template`, which escapes it, and the diagram code escapes every label. Passwords and tokens are already hidden before the report is built.
 - **Colour never carries meaning alone.** Severity and status colours always appear next to a word ("critical", "fail"). The colours for kinds of points in the diagram (agent, service account, role, tool server) are backed up by the label text ("sa …", "role …", "mcp …"). This keeps the report readable for colour-blind readers and when printed in black and white.
 - **Light and dark mode.** Both colour sets are designed separately, and the report follows the reader's system setting.
@@ -62,7 +62,7 @@ The diagram is drawn by `ReachSVG` in `internal/report/graphsvg.go`. It reads le
 - **On the far right are the powers.** Each service account, role or tool server has up to four boxes on the right, one per kind of power it grants, most dangerous first. Each box shows an example permission and how many more there are. "read" is left out when something stronger is present, to keep the diagram short. The box colour follows the severity of that kind of power: admin and exec critical; destroy critical on production, otherwise high; secrets, external and untrusted high; write medium; read low.
 - **No crossing lines.** Rows are assigned from top to bottom, and each point's own power boxes take rows before its children do. So the dashed lines out to the power column never cross another box.
 
-To paste a diagram into Markdown instead, use `groot scan --format mermaid`.
+To paste a diagram into Markdown instead, use `attckus scan --format mermaid`.
 
 ## Where the code lives
 
@@ -71,7 +71,7 @@ To paste a diagram into Markdown instead, use `groot scan --format mermaid`.
 | Report data and helper functions for the template | `HTMLData`, `HTML` in `internal/report/html.go` |
 | The template and its styles | `internal/report/report.html.tmpl`, built into the binary |
 | The reach diagram | `ReachSVG`, `chipsFor`, `chipSeverity` in `internal/report/graphsvg.go` |
-| Hooking it into the commands | `scan` in `cmd/groot/main.go` (`--format html`, `graph`); `testCmd` and `writeHTML` in `cmd/groot/test.go` (`--html`) |
+| Hooking it into the commands | `scan` in `cmd/attckus/main.go` (`--format html`, `graph`); `testCmd` and `writeHTML` in `cmd/attckus/test.go` (`--html`) |
 
 ## When things go wrong
 

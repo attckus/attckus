@@ -7,7 +7,7 @@ nav_order: 5
 # Scan findings
 {: .no_toc }
 
-Every finding `groot scan` can report: what it means, how its severity is decided, and how to fix it.
+Every finding `attckus scan` can report: what it means, how its severity is decided, and how to fix it.
 
 1. TOC
 {:toc}
@@ -21,14 +21,14 @@ Every finding `groot scan` can report: what it means, how its severity is decide
 | **critical** | One fooled or faulty run could cause serious, hard-to-undo damage. Fix before release. |
 | **high** | Serious exposure. Fix soon. |
 | **medium** | Worth fixing; limited damage on its own. |
-| **low** | Informational, or a gap in what Groot could check. |
+| **low** | Informational, or a gap in what Attckus could check. |
 
 Two rules adjust severity:
 
 - **Production is rated higher.** A permission counts as production when its resource name contains `prod` or `production`, when it applies to `*` (everything), when the role is tagged as production, or when a Kubernetes permission is cluster-wide or in a namespace named like production.
 - **Conditional permissions are rated one level lower.** If every matching AWS permission only applies under a condition (for example "only from this network"), the finding is still reported, marked "conditional", one level lower.
 
-`groot scan --fail-on <severity>` fails the build at that severity or above (default `critical`).
+`attckus scan --fail-on <severity>` fails the build at that severity or above (default `critical`).
 
 ## Reach findings
 
@@ -90,7 +90,7 @@ These come from reading MCP config files.
 
 **Severity:** high
 
-**What it means:** a password, token or key is written directly into a config file, where anyone with access to the repository can read it. Groot shows only the start of the value and hides the rest.
+**What it means:** a password, token or key is written directly into a config file, where anyone with access to the repository can read it. Attckus shows only the start of the value and hides the rest.
 
 **Fix:** reference an environment variable or a secret manager instead, and rotate the exposed credential.
 
@@ -114,13 +114,13 @@ These come from reading MCP config files.
 
 **Severity:** low
 
-**What it means:** Groot doesn't recognise this server, so it can't tell what the server lets the agent do. The agent's reach may be larger than reported.
+**What it means:** Attckus doesn't recognise this server, so it can't tell what the server lets the agent do. The agent's reach may be larger than reported.
 
 **Fix:** review the server's tools yourself.
 
-## Servers Groot recognises
+## Servers Attckus recognises
 
-Groot knows what these kinds of MCP server allow, and counts their powers in the agent's reach:
+Attckus knows what these kinds of MCP server allow, and counts their powers in the agent's reach:
 
 | Server kind | Powers |
 | --- | --- |

@@ -115,13 +115,13 @@ func (in *Injector) Pick(agent, tool string) *Injected {
 func defaultMessage(t FaultType) string {
 	switch t {
 	case Error:
-		return "upstream service unavailable (injected by groot chaos)"
+		return "upstream service unavailable (injected by attckus chaos)"
 	case Timeout:
-		return "request timed out (injected by groot chaos)"
+		return "request timed out (injected by attckus chaos)"
 	case Malformed:
 		return "\x00\x7f{\"partial\": tru"
 	case RateLimit:
-		return "rate limit exceeded (injected by groot chaos)"
+		return "rate limit exceeded (injected by attckus chaos)"
 	}
 	return ""
 }

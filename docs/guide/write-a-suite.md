@@ -7,7 +7,7 @@ nav_order: 2
 # Write a test suite
 {: .no_toc }
 
-A suite is a JSON file that tells Groot how to run your agent, which tools it uses, and which scenarios to try. This guide builds one step by step. Every field is listed in the [suite file reference](../reference/suite-file.md).
+A suite is a JSON file that tells Attckus how to run your agent, which tools it uses, and which scenarios to try. This guide builds one step by step. Every field is listed in the [suite file reference](../reference/suite-file.md).
 
 1. TOC
 {:toc}
@@ -16,7 +16,7 @@ A suite is a JSON file that tells Groot how to run your agent, which tools it us
 
 ## Step 1: the smallest useful suite
 
-Create `groot-suite.json` next to your agent's tests:
+Create `attckus-suite.json` next to your agent's tests:
 
 ```json
 {
@@ -35,15 +35,15 @@ Create `groot-suite.json` next to your agent's tests:
 What each part does:
 
 - **`version`** is always `1`.
-- **`agent`** is your agent's name. Use the same name `groot scan` shows for it, so test failures can be linked to its permissions later.
+- **`agent`** is your agent's name. Use the same name `attckus scan` shows for it, so test failures can be linked to its permissions later.
 - **`command`** runs your agent once. Usually this is an existing end-to-end test or eval script that exits with `0` on success. It runs from the folder the suite file is in; use `dir` to change that.
-- **`mcp_servers`** lists the tool servers your agent uses. The `name` is how your agent will find each one in `GROOT_MCP_CONFIG`. Give either a `command` (for a server your agent starts) or a `url` (for a remote one).
+- **`mcp_servers`** lists the tool servers your agent uses. The `name` is how your agent will find each one in `ATTCKUS_MCP_CONFIG`. Give either a `command` (for a server your agent starts) or a `url` (for a remote one).
 - **`scenarios`** lists the runs. This one, `baseline`, changes nothing and just checks that the agent behaves and exits successfully when everything works.
 
 Run it:
 
 ```bash
-groot test --suite groot-suite.json
+attckus test --suite attckus-suite.json
 ```
 
 A passing baseline proves the connection works. If the baseline fails, fix that first: every other scenario builds on it.
@@ -60,7 +60,7 @@ A passing baseline proves the connection works. If the baseline fails, fix that 
 }
 ```
 
-This makes every call to `refund_order` return an error with that message. Groot then checks how the agent reacts: does it retry in a storm, switch to a more powerful tool, or loop? See [Attacks and failures](attacks-and-failures.md) for every fault type.
+This makes every call to `refund_order` return an error with that message. Attckus then checks how the agent reacts: does it retry in a storm, switch to a more powerful tool, or loop? See [Attacks and failures](attacks-and-failures.md) for every fault type.
 
 ## Step 3: add an attack
 
@@ -113,7 +113,7 @@ The `expect` section of a scenario adds checks and relaxes others:
   "version": 1,
   "agent": "support-bot",
   "command": ["python", "-m", "pytest", "tests/test_agent_e2e.py"],
-  "policy": "groot-policy.json",
+  "policy": "attckus-policy.json",
   "scan": "deploy/",
   "mcp_servers": [ … ],
   "scenarios": [ … ]
@@ -121,7 +121,7 @@ The `expect` section of a scenario adds checks and relaxes others:
 ```
 
 - **`policy`** is the rule file for what the agent may call during the test. See [Set a permission boundary](permission-boundary.md).
-- **`scan`** is a folder `groot scan` can read: your agent code, MCP configs, and Kubernetes and AWS exports. When the agent obeys a planted instruction, the result then also says what that agent's real permissions allow. See [Scan your environment](scan-your-environment.md).
+- **`scan`** is a folder `attckus scan` can read: your agent code, MCP configs, and Kubernetes and AWS exports. When the agent obeys a planted instruction, the result then also says what that agent's real permissions allow. See [Scan your environment](scan-your-environment.md).
 
 Paths are relative to the suite file.
 
@@ -139,7 +139,7 @@ Paths are relative to the suite file.
 
 | Setting | What it does |
 | --- | --- |
-| `timeout_seconds` | How long one run may take before Groot stops the agent and everything it started (default 120). A run that hits this fails. |
+| `timeout_seconds` | How long one run may take before Attckus stops the agent and everything it started (default 120). A run that hits this fails. |
 | `seed` | The random seed for choosing which calls fail. Keep it fixed so runs repeat. |
 | `dir` | The folder to run `command` from, relative to the suite file. |
 | `env` | Extra environment variables for the agent. |
@@ -153,7 +153,7 @@ Paths are relative to the suite file.
   "agent": "support-bot",
   "command": ["python", "-m", "pytest", "tests/test_agent_e2e.py"],
   "timeout_seconds": 120,
-  "policy": "groot-policy.json",
+  "policy": "attckus-policy.json",
   "scan": "deploy/",
   "seed": 2026,
   "mcp_servers": [
@@ -193,15 +193,15 @@ Paths are relative to the suite file.
 ## Running a suite
 
 ```bash
-groot test                                      # uses ./groot-suite.json
-groot test --suite path/to/suite.json
-groot test --scenario "payments outage"         # just one scenario (repeat the flag for more)
-groot test --html report.html                   # also write the visual report
-groot test --format junit > groot.xml           # results for your CI's test view
-groot test --strict                             # treat inconclusive as failure
+attckus test                                      # uses ./attckus-suite.json
+attckus test --suite path/to/suite.json
+attckus test --scenario "payments outage"         # just one scenario (repeat the flag for more)
+attckus test --html report.html                   # also write the visual report
+attckus test --format junit > attckus.xml           # results for your CI's test view
+attckus test --strict                             # treat inconclusive as failure
 ```
 
-Every scenario's evidence goes in `.groot/runs/<date-time>/<scenario-name>/` (or the folder given with `--out`):
+Every scenario's evidence goes in `.attckus/runs/<date-time>/<scenario-name>/` (or the folder given with `--out`):
 
 | File | What's in it |
 | --- | --- |
@@ -217,4 +217,4 @@ Every scenario's evidence goes in `.groot/runs/<date-time>/<scenario-name>/` (or
 - **Use tools your test always calls.** An attack on a tool the agent rarely uses will often be inconclusive.
 - **Run attack scenarios more than once** for real AI agents. The model may obey one time and resist the next. Running the same suite a few times in CI catches what one run misses.
 - **Keep the seed fixed** so failures repeat.
-- **Point at a test environment.** Groot passes calls through to your real tool servers, so a successful refund in a test is a real refund in whatever system the server talks to.
+- **Point at a test environment.** Attckus passes calls through to your real tool servers, so a successful refund in a test is a real refund in whatever system the server talks to.

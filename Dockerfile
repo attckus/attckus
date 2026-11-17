@@ -1,12 +1,12 @@
-# docker build -t groot .
-# docker run --rm -v "$PWD:/src" groot scan /src
+# docker build -t attckus .
+# docker run --rm -v "$PWD:/src" attckus scan /src
 FROM golang:1.24-alpine AS build
 WORKDIR /src
 COPY go.mod ./
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/groot ./cmd/groot
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/attckus ./cmd/attckus
 
 FROM gcr.io/distroless/static-debian12:nonroot
-COPY --from=build /out/groot /groot
+COPY --from=build /out/attckus /attckus
 USER nonroot:nonroot
-ENTRYPOINT ["/groot"]
+ENTRYPOINT ["/attckus"]

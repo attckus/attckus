@@ -1,14 +1,14 @@
-# Groot plan
+# Attckus plan
 
 Last updated: 2026-11-06 · Owner: Mohit Kumar
 
 ## The goal in one paragraph
 
-Teams are putting AI agents into production faster than they can check them. Groot gives those teams a way to **break their agent on purpose before release**, to **see exactly what the agent could damage**, and to **show both in a report** their security team can read. It runs in CI against a test environment, needs no cloud credentials, and never uses an AI to decide whether a test passed.
+Teams are putting AI agents into production faster than they can check them. Attckus gives those teams a way to **break their agent on purpose before release**, to **see exactly what the agent could damage**, and to **show both in a report** their security team can read. It runs in CI against a test environment, needs no cloud credentials, and never uses an AI to decide whether a test passed.
 
-## What Groot does
+## What Attckus does
 
-1. **Break the agent on purpose.** Run the agent while Groot plants hidden instructions in what its tools return and makes tools fail. Fail the build when the agent does something dangerous: follows a planted instruction, steps outside the permissions it was given, repeats an action that should happen once (like a refund), loops, or runs up cost.
+1. **Break the agent on purpose.** Run the agent while Attckus plants hidden instructions in what its tools return and makes tools fail. Fail the build when the agent does something dangerous: follows a planted instruction, steps outside the permissions it was given, repeats an action that should happen once (like a refund), loops, or runs up cost.
 2. **Show what it can reach.** For each agent, answer plain questions. Can it delete a database? Can it start unlimited Lambda functions or servers? Can it delete AWS or Kubernetes resources? Can it read secrets? Can it give itself more access? Each answer comes with the chain of permissions that makes it true.
 3. **Report it clearly.** One HTML file with the test results, a diagram of what each agent can reach, and every problem with a suggested fix.
 
@@ -16,7 +16,7 @@ Teams are putting AI agents into production faster than they can check them. Gro
 
 **What we are deliberately not building:**
 
-- A production proxy or filter that sits in front of agents in live traffic. Groot tests before release; it does not guard at runtime.
+- A production proxy or filter that sits in front of agents in live traffic. Attckus tests before release; it does not guard at runtime.
 - Prompt-injection detectors, jailbreak testing or content moderation. Many tools do these already.
 - Quality evals ("is the answer good?"). That is what eval tools are for.
 - AI-based judging. Every pass or fail comes from a fixed rule anyone can check.
@@ -30,7 +30,7 @@ Dates assume 15 to 20 hours a week alongside a full-time job.
 | Phase | When | Goal | Gate to move on |
 | --- | --- | --- | --- |
 | 1. Core | done, November 2026 | All three jobs work end to end on a demo | Done |
-| 2. Prove it on real agents | November to December 2026 | Real teams use it on real agents | 3 teams run `groot test` on a real agent and keep it in CI |
+| 2. Prove it on real agents | November to December 2026 | Real teams use it on real agents | 3 teams run `attckus test` on a real agent and keep it in CI |
 | 3. Deeper testing | January to February 2027 | Test guardrails, replay real incidents | 500 GitHub stars and 3 named users |
 | 4. Deeper reach | March to April 2027 | Name the exact resource at risk; cover more AWS and Kubernetes paths | 10 companies using scan or test |
 | 5. Reporting and launch | May to June 2027 | Trends across runs; public launch | 2,000 stars and 1 paying design partner |
@@ -39,7 +39,7 @@ Dates assume 15 to 20 hours a week alongside a full-time job.
 
 The goal was to have all three jobs working end to end, so the idea can be shown and tried.
 
-**Breaking the agent (`groot test`)**
+**Breaking the agent (`attckus test`)**
 
 - [x] A suite file describing how to run the agent and which scenarios to try; one run per scenario, with all evidence kept; results as text, JSON or JUnit.
 - [x] Planted instructions (attacks) with a random marker to prove the agent obeyed: in tool results, in tool descriptions, and in descriptions that change mid-run. Works for MCP tools and for tools passed to model APIs.
@@ -50,7 +50,7 @@ The goal was to have all three jobs working end to end, so the idea can be shown
 - [x] Correctness limits: a runaway-loop check, "this tool may succeed only once", and caps on tool calls, model calls and cost.
 - [x] Impact: when the agent obeys a planted instruction, the result says what its real permissions allow.
 
-**Mapping reach (`groot scan`)**
+**Mapping reach (`attckus scan`)**
 
 - [x] Finding agents from their code, their MCP configs and their Kubernetes workloads, and linking these together.
 - [x] Kubernetes: workloads, service accounts, role bindings (including wildcards and groups), and IRSA (how pods get AWS roles).
@@ -65,13 +65,13 @@ The goal was to have all three jobs working end to end, so the idea can be shown
 
 ## Phase 2: Prove it on real agents (November to December 2026)
 
-**Goal:** find out whether Groot works on agents it wasn't written for, and whether teams keep using it.
+**Goal:** find out whether Attckus works on agents it wasn't written for, and whether teams keep using it.
 
-**Gate:** 3 teams run `groot test` on a real agent and keep it in their CI.
+**Gate:** 3 teams run `attckus test` on a real agent and keep it in their CI.
 
-- [ ] **Quickstarts** for LangGraph, the OpenAI Agents SDK, the Claude Agent SDK and the Vercel AI SDK, showing how to load tool servers from `GROOT_MCP_CONFIG`. This is the main thing standing between a new user and a first run.
-- [ ] **Test 3 real open-source agents** with `groot test`, and fix whatever breaks.
-- [ ] **Scan 3 real environments** with `groot scan`, and fix wrong results and missed paths.
+- [ ] **Quickstarts** for LangGraph, the OpenAI Agents SDK, the Claude Agent SDK and the Vercel AI SDK, showing how to load tool servers from `ATTCKUS_MCP_CONFIG`. This is the main thing standing between a new user and a first run.
+- [ ] **Test 3 real open-source agents** with `attckus test`, and fix whatever breaks.
+- [ ] **Scan 3 real environments** with `attckus scan`, and fix wrong results and missed paths.
 - [ ] **Repeat runs** (`runs: N` per scenario) with a pass rate. Real AI agents don't behave the same way every time, so one run can mislead.
 - [ ] **Record a 3-minute demo:** a test failing, its impact, and the HTML report.
 - [ ] **Interview 10 platform and security engineers** who run agents, to learn which failures and permissions worry them most.
@@ -84,7 +84,7 @@ The goal was to have all three jobs working end to end, so the idea can be shown
 **Gate:** 500 GitHub stars and 3 named users.
 
 - [ ] **Guardrail testing.** Run the same attacks with and without a policy (or a third-party guardrail product), and report what each control caught and missed. Security teams buying guardrails need neutral proof that they work. This builds on the control run from phase 1.
-- [ ] **Incident replay.** Turn a real session (first a Groot audit log, later an OpenTelemetry trace) into a test that plays back the same tool responses, then adds an attack or a failure. "Yesterday's incident becomes today's CI test."
+- [ ] **Incident replay.** Turn a real session (first a Attckus audit log, later an OpenTelemetry trace) into a test that plays back the same tool responses, then adds an attack or a failure. "Yesterday's incident becomes today's CI test."
 - [ ] **Attack timing.** Deliver an attack only after the first failure happens, instead of for the whole run, to model "the injection arrives while payments is down" more precisely.
 - [ ] **Idempotency keys.** Recognise a retry that reuses its idempotency key as safe, so it isn't reported as a duplicate.
 - [ ] **Cost baselines.** Fail a scenario when its cost jumps compared with its last passing run.
@@ -107,13 +107,13 @@ The goal was to have all three jobs working end to end, so the idea can be shown
 
 ## Phase 5: Reporting and launch (May to June 2027)
 
-**Goal:** make Groot easy to adopt and keep using, and tell people about it.
+**Goal:** make Attckus easy to adopt and keep using, and tell people about it.
 
 **Gate:** 2,000 GitHub stars and 1 paying design partner.
 
 - [ ] **Report history:** how failures and findings change across runs, and what changed since the last run.
 - [ ] **Policy suggestions:** propose the narrowest policy that keeps all tests passing, based on what the agent actually needed.
-- [ ] **Research post:** test popular open-source agents with Groot and publish the results, with responsible disclosure first.
+- [ ] **Research post:** test popular open-source agents with Attckus and publish the results, with responsible disclosure first.
 - [ ] **Docs site** with the demo, the threat model and the list of rules.
 - [ ] **Talks:** KubeCon, BSides, fwd:cloudsec, and local AI security meetups.
 
@@ -127,7 +127,7 @@ The goal was to have all three jobs working end to end, so the idea can be shown
 
 | Decision | Why |
 | --- | --- |
-| **Test, don't enforce.** Groot's go-betweens exist only inside a test run. | A production proxy is a different product with much higher reliability demands. Testing before release is where Groot adds value nobody else does. |
+| **Test, don't enforce.** Attckus's go-betweens exist only inside a test run. | A production proxy is a different product with much higher reliability demands. Testing before release is where Attckus adds value nobody else does. |
 | **Scan exported files, not live APIs.** | No credentials and no security review are needed to try it. It works in locked-down CI. |
 | **Sit between the agent and its tools, rather than plugging into each framework.** | The agent doesn't change, and one approach works for every framework and language. |
 | **One shared list of "kinds of power"** for scanning, testing and analysis. | A tool the scan calls "delete" is the same tool the tests treat as dangerous, so results agree. |

@@ -17,14 +17,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mohitkumar/groot/internal/analyze"
-	"github.com/mohitkumar/groot/internal/attack"
-	"github.com/mohitkumar/groot/internal/audit"
-	"github.com/mohitkumar/groot/internal/chaos"
-	"github.com/mohitkumar/groot/internal/gateway"
-	"github.com/mohitkumar/groot/internal/llm"
-	"github.com/mohitkumar/groot/internal/policy"
-	"github.com/mohitkumar/groot/internal/risk"
+	"github.com/mohitkumar/attckus/internal/analyze"
+	"github.com/mohitkumar/attckus/internal/attack"
+	"github.com/mohitkumar/attckus/internal/audit"
+	"github.com/mohitkumar/attckus/internal/chaos"
+	"github.com/mohitkumar/attckus/internal/gateway"
+	"github.com/mohitkumar/attckus/internal/llm"
+	"github.com/mohitkumar/attckus/internal/policy"
+	"github.com/mohitkumar/attckus/internal/risk"
 )
 
 // Statuses.
@@ -81,8 +81,8 @@ func (r Report) Failed(strict bool) bool {
 
 // Runner executes suites.
 type Runner struct {
-	// Groot is the groot binary used to wrap stdio MCP servers.
-	Groot string
+	// Attckus is the attckus binary used to wrap stdio MCP servers.
+	Attckus string
 	// OutDir receives one directory per scenario: policy, MCP config,
 	// audit log and agent output.
 	OutDir string
@@ -181,7 +181,7 @@ func (r *Runner) runScenario(ctx context.Context, s *Suite, sc Scenario) Result 
 		return ch, at, err
 	}
 
-	// MCP servers: stdio ones are wrapped by `groot gateway stdio`, URL ones
+	// MCP servers: stdio ones are wrapped by `attckus gateway stdio`, URL ones
 	// get an in-process HTTP gateway.
 	var closers []func()
 	defer func() {
@@ -192,12 +192,12 @@ func (r *Runner) runScenario(ctx context.Context, s *Suite, sc Scenario) Result 
 	mcpCfg := map[string]any{}
 	for _, m := range s.MCPServers {
 		if len(m.Command) > 0 {
-			if r.Groot == "" {
-				return fail(errors.New("stdio MCP servers need the groot binary path"))
+			if r.Attckus == "" {
+				return fail(errors.New("stdio MCP servers need the attckus binary path"))
 			}
 			args := []string{"gateway", "stdio", "--policy", polPath, "--agent", s.Agent, "--server-name", m.Name,
 				"--audit", auditPath, "--env", "test", "--attacks", attacksPath, "--canary", canary, "--"}
-			mcpCfg[m.Name] = map[string]any{"command": r.Groot, "args": append(args, m.Command...)}
+			mcpCfg[m.Name] = map[string]any{"command": r.Attckus, "args": append(args, m.Command...)}
 			continue
 		}
 		up, err := url.Parse(m.URL)
@@ -221,7 +221,7 @@ func (r *Runner) runScenario(ctx context.Context, s *Suite, sc Scenario) Result 
 		return fail(err)
 	}
 
-	env := append(os.Environ(), "GROOT_MCP_CONFIG="+cfgPath, "GROOT_SCENARIO="+sc.Name)
+	env := append(os.Environ(), "ATTCKUS_MCP_CONFIG="+cfgPath, "ATTCKUS_SCENARIO="+sc.Name)
 	keys := make([]string, 0, len(s.Env))
 	for k := range s.Env {
 		keys = append(keys, k)

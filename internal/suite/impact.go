@@ -5,9 +5,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mohitkumar/groot/internal/capability"
-	"github.com/mohitkumar/groot/internal/inventory"
-	"github.com/mohitkumar/groot/internal/risk"
+	"github.com/mohitkumar/attckus/internal/capability"
+	"github.com/mohitkumar/attckus/internal/inventory"
+	"github.com/mohitkumar/attckus/internal/risk"
 )
 
 // Impact joins a failed test with the scan graph: the agent did something
@@ -88,7 +88,7 @@ func joinImpact(scan *risk.Result, agent string, tools []string, contained bool)
 		known = known || a.Name == agent
 	}
 	if !known {
-		imp.Note = fmt.Sprintf("agent %q was not found in the scan; set \"agent\" in the suite to the name groot scan shows", agent)
+		imp.Note = fmt.Sprintf("agent %q was not found in the scan; set \"agent\" in the suite to the name attckus scan shows", agent)
 		imp.Severity = worst.String()
 		return imp
 	}

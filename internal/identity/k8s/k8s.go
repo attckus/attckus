@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mohitkumar/groot/internal/capability"
+	"github.com/mohitkumar/attckus/internal/capability"
 )
 
 const IRSAAnnotation = "eks.amazonaws.com/role-arn"

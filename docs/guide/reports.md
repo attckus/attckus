@@ -7,7 +7,7 @@ nav_order: 6
 # Reports
 {: .no_toc }
 
-Groot can show its results in several forms: a visual HTML report for people, and machine-readable formats for CI and other tools.
+Attckus can show its results in several forms: a visual HTML report for people, and machine-readable formats for CI and other tools.
 
 1. TOC
 {:toc}
@@ -20,9 +20,9 @@ Groot can show its results in several forms: a visual HTML report for people, an
 
 | Command | What the report contains |
 | --- | --- |
-| `groot test --html report.html` | Test results. If the suite has a `scan` folder (or you pass `--scan <folder>`), also what the agent can reach. |
-| `groot scan --format html my-repo/ > report.html` | What every agent can reach, with findings. |
-| `groot graph my-repo/ > report.html` | The same as `scan --format html`, but it never fails the build. Use it when you just want the picture. |
+| `attckus test --html report.html` | Test results. If the suite has a `scan` folder (or you pass `--scan <folder>`), also what the agent can reach. |
+| `attckus scan --format html my-repo/ > report.html` | What every agent can reach, with findings. |
+| `attckus graph my-repo/ > report.html` | The same as `scan --format html`, but it never fails the build. Use it when you just want the picture. |
 
 The report is a single file. It has no scripts and loads nothing from the internet, so you can open it offline, attach it to a CI run, add it to a ticket or email it. Light and dark mode follow your system setting.
 
@@ -62,9 +62,9 @@ Hover over any box or line for the full text.
 
 | Format | Command | Use it for |
 | --- | --- | --- |
-| Text | `groot test` | Reading in a terminal or CI log |
-| JSON | `groot test --format json` | Your own tooling and dashboards. Includes every check, the summary counts, the control-run comparison and the impact. |
-| JUnit XML | `groot test --format junit` | CI systems that show test results (GitHub, GitLab, Jenkins, CircleCI and others). Each scenario is a test case; inconclusive scenarios are shown as skipped. |
+| Text | `attckus test` | Reading in a terminal or CI log |
+| JSON | `attckus test --format json` | Your own tooling and dashboards. Includes every check, the summary counts, the control-run comparison and the impact. |
+| JUnit XML | `attckus test --format junit` | CI systems that show test results (GitHub, GitLab, Jenkins, CircleCI and others). Each scenario is a test case; inconclusive scenarios are shown as skipped. |
 
 Progress lines go to stderr, and the results go to stdout, so you can redirect the results to a file safely.
 
@@ -72,23 +72,23 @@ Progress lines go to stderr, and the results go to stdout, so you can redirect t
 
 | Format | Command | Use it for |
 | --- | --- | --- |
-| Text | `groot scan` | Reading in a terminal |
-| JSON | `groot scan --format json` | Your own tooling. Includes every agent's permissions, yes/no answers and findings. |
-| SARIF | `groot scan --format sarif` | GitHub code scanning, and other tools that read SARIF 2.1.0. Findings appear in pull requests, linked to the agent's file. |
-| Mermaid | `groot scan --format mermaid` | Pasting a diagram into Markdown, a wiki, or a design doc. GitHub and GitLab render it. |
-| HTML | `groot scan --format html` | People (see above) |
+| Text | `attckus scan` | Reading in a terminal |
+| JSON | `attckus scan --format json` | Your own tooling. Includes every agent's permissions, yes/no answers and findings. |
+| SARIF | `attckus scan --format sarif` | GitHub code scanning, and other tools that read SARIF 2.1.0. Findings appear in pull requests, linked to the agent's file. |
+| Mermaid | `attckus scan --format mermaid` | Pasting a diagram into Markdown, a wiki, or a design doc. GitHub and GitLab render it. |
+| HTML | `attckus scan --format html` | People (see above) |
 
 ### Audit logs
 
 Every test scenario keeps an `audit.jsonl` in its evidence folder: one JSON line per event (each tool call, result, planted instruction and model call). To re-check one by hand:
 
 ```bash
-groot analyze .groot/runs/20261106-101500/payments-outage/audit.jsonl
-groot analyze --format json --retry-threshold 3 audit.jsonl
+attckus analyze .attckus/runs/20261106-101500/payments-outage/audit.jsonl
+attckus analyze --format json --retry-threshold 3 audit.jsonl
 ```
 
 This reports retry storms, runaway loops, duplicate actions, escalation, blocked attempts, budget problems and cost per agent.
 
 ## Secrets in reports
 
-Groot hides passwords and tokens wherever it reports them. A token found in an MCP config appears as, for example, `xoxb…REDACTED`. Tool call arguments with names that look like passwords, tokens or keys are hidden in the audit log. Even so, reports describe your permissions in detail; share them as you would share an architecture diagram, not publicly.
+Attckus hides passwords and tokens wherever it reports them. A token found in an MCP config appears as, for example, `xoxb…REDACTED`. Tool call arguments with names that look like passwords, tokens or keys are hidden in the audit log. Even so, reports describe your permissions in detail; share them as you would share an architecture diagram, not publicly.

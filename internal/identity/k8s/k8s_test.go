@@ -3,11 +3,11 @@ package k8s
 import (
 	"testing"
 
-	"github.com/mohitkumar/groot/internal/capability"
+	"github.com/mohitkumar/attckus/internal/capability"
 )
 
 const list = `{"apiVersion":"v1","kind":"List","items":[
- {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"bot","namespace":"support","annotations":{"groot.dev/agent":"true"}},
+ {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"bot","namespace":"support","annotations":{"attckus.dev/agent":"true"}},
   "spec":{"template":{"spec":{"serviceAccountName":"bot","containers":[{"image":"bot:1",
     "env":[{"name":"OPENAI_API_KEY","valueFrom":{"secretKeyRef":{"name":"llm-keys","key":"openai"}}}],
     "envFrom":[{"secretRef":{"name":"db-creds"}}]}]}}}},

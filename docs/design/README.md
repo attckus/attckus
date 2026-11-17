@@ -5,28 +5,28 @@ has_children: true
 permalink: /design/
 ---
 
-# How Groot works
+# How Attckus works
 
-This folder explains how Groot works inside: what each command is for, how it is built, what data flows through it, where the code lives, and what happens when something goes wrong. It is written for contributors and for anyone who wants to trust the results enough to act on them.
+This folder explains how Attckus works inside: what each command is for, how it is built, what data flows through it, where the code lives, and what happens when something goes wrong. It is written for contributors and for anyone who wants to trust the results enough to act on them.
 
-If you only want to use Groot, start with the [User guide](../guide/index.md).
+If you only want to use Attckus, start with the [User guide](../guide/index.md).
 
-## The three questions Groot answers
+## The three questions Attckus answers
 
-1. **Does the agent behave safely when someone tries to fool it, or when its tools fail?** `groot test` answers this by running the agent under planted instructions and failures, then checking what it did.
-2. **If it didn't, what could it damage?** `groot scan` answers this by following the agent's permissions in Kubernetes and AWS, and its tool configuration, to everything it can reach.
+1. **Does the agent behave safely when someone tries to fool it, or when its tools fail?** `attckus test` answers this by running the agent under planted instructions and failures, then checking what it did.
+2. **If it didn't, what could it damage?** `attckus scan` answers this by following the agent's permissions in Kubernetes and AWS, and its tool configuration, to everything it can reach.
 3. **How do I show this to my team?** Both commands can write one HTML report with the results and a diagram.
 
 ## The documents
 
 | Document | Covers |
 | --- | --- |
-| [test.md](test.md) | `groot test`: running scenarios, planting instructions and failures, deciding pass or fail, linking failures to permissions, control runs, correctness limits |
-| [scan.md](scan.md) | `groot scan`: finding agents, following permissions, the yes/no questions, findings and severities |
+| [test.md](test.md) | `attckus test`: running scenarios, planting instructions and failures, deciding pass or fail, linking failures to permissions, control runs, correctness limits |
+| [scan.md](scan.md) | `attckus scan`: finding agents, following permissions, the yes/no questions, findings and severities |
 | [report.md](report.md) | The HTML report and how the reach diagram is drawn |
-| [analyze.md](analyze.md) | `groot analyze`: spotting retry storms, loops, duplicate actions and escalation in an audit log |
-| [policy.md](policy.md) | `groot policy`: the permission boundary a test checks the agent against |
-| [gateway.md](gateway.md) | The go-betweens Groot puts between the agent and its tools during a test |
+| [analyze.md](analyze.md) | `attckus analyze`: spotting retry storms, loops, duplicate actions and escalation in an audit log |
+| [policy.md](policy.md) | `attckus policy`: the permission boundary a test checks the agent against |
+| [gateway.md](gateway.md) | The go-betweens Attckus puts between the agent and its tools during a test |
 
 Each document has the same parts: **use case** (who needs this and why), **design** (how it works), **data flow** (what goes in and out at each step), **where the code lives**, and **failure modes** (what happens when inputs are bad). Code is referred to by file and function name rather than line number, so these documents stay correct as the code changes.
 
@@ -39,7 +39,7 @@ flowchart LR
     scan --> res["what each agent can reach: map, answers, findings"]
   end
   subgraph break[Break: one run per scenario]
-    suite[groot-suite.json] --> test[test]
+    suite[attckus-suite.json] --> test[test]
     pol[(policy.json)] --> test
     test --> proxies["go-betweens: apply policy, failures, planted instructions"]
     proxies <--> agent[your agent]
@@ -53,16 +53,16 @@ flowchart LR
 
 Read it like this:
 
-- On the left (**Break**), `groot test` reads the suite, starts your agent with Groot's go-betweens in front of its tools, and lets the run happen. The go-betweens write down everything in an audit log. Groot then reads the log and decides whether the agent behaved.
-- On the right (**Reach**), `groot scan` reads exported files and builds a map of what each agent can touch.
-- The arrow between them is the key idea. When a test shows that the agent obeyed a planted instruction, Groot looks the agent up in the map and says what it could have done.
+- On the left (**Break**), `attckus test` reads the suite, starts your agent with Attckus's go-betweens in front of its tools, and lets the run happen. The go-betweens write down everything in an audit log. Attckus then reads the log and decides whether the agent behaved.
+- On the right (**Reach**), `attckus scan` reads exported files and builds a map of what each agent can touch.
+- The arrow between them is the key idea. When a test shows that the agent obeyed a planted instruction, Attckus looks the agent up in the map and says what it could have done.
 - Both feed the HTML report.
 
-`groot test` is the centre of the product. `groot scan` also stands on its own: you can run it without any tests.
+`attckus test` is the centre of the product. `attckus scan` also stands on its own: you can run it without any tests.
 
 ## Where the commands start
 
-Every command begins in `run` in `cmd/groot/main.go`, which looks at the first argument and calls the right function. `groot test` lives in `cmd/groot/test.go`.
+Every command begins in `run` in `cmd/attckus/main.go`, which looks at the first argument and calls the right function. `attckus test` lives in `cmd/attckus/test.go`.
 
 All commands use the same exit codes, so CI can rely on them:
 
@@ -112,9 +112,9 @@ Every test run produces an audit log: one JSON line per event.
 | `tool_result` | A tool answers. Records whether it was an error and how long it took. |
 | `tool_flagged` | A tool's description looks like it contains a planted instruction. |
 | `tool_changed` | A tool's description changed during the run. |
-| `attack_injected` | Groot planted an instruction. |
+| `attack_injected` | Attckus planted an instruction. |
 | `llm_call` | The agent called a model API. Records tokens, cost, and decisions such as `budget_exceeded` or `model_denied`. |
-| `rejected` | A message Groot refuses to inspect (a batch of several requests at once). |
+| `rejected` | A message Attckus refuses to inspect (a batch of several requests at once). |
 
 The code is in `internal/audit/audit.go`.
 
@@ -135,7 +135,7 @@ The code is in `internal/audit/audit.go`.
 - Calling cloud APIs live.
 - Clouds other than AWS, for now.
 
-## Keeping Groot itself safe
+## Keeping Attckus itself safe
 
 - **No credentials.** The scan only reads files. During a test, the model API go-between passes on the agent's own API key; it uses its own key only if the suite asks for that with `inject_keys`.
 - **Stop early on bad input.** An invalid suite or policy stops the command before anything runs.
@@ -150,4 +150,4 @@ The code is in `internal/audit/audit.go`.
 | Plug into each agent framework (SDK middleware) instead of sitting between the agent and its tools | Deeper access, but one integration per framework and language. The go-between approach works for every MCP client and every SDK that lets you change the API address. |
 | Read permissions from cloud APIs live instead of from exported files | Always up to date, but needs credentials and a security review before anyone can try it. Exported files remove that barrier. |
 | Use an AI to judge whether a run was safe | Results would vary between runs and be hard to explain. A security gate needs fixed rules. |
-| Build a production enforcement proxy | Useful, but a different product with much higher reliability demands. Groot tests before release; teams enforce with their own controls, and Groot can test those controls. |
+| Build a production enforcement proxy | Useful, but a different product with much higher reliability demands. Attckus tests before release; teams enforce with their own controls, and Attckus can test those controls. |

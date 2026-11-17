@@ -1,4 +1,4 @@
-// Package gateway is the MCP proxy groot test puts in front of each MCP
+// Package gateway is the MCP proxy attckus test puts in front of each MCP
 // server: it applies the policy, faults and attacks to tool calls and writes
 // the audit log. Engine holds the decision logic; stdio.go and http.go are
 // transports that feed it messages.
@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mohitkumar/groot/internal/attack"
-	"github.com/mohitkumar/groot/internal/audit"
-	"github.com/mohitkumar/groot/internal/chaos"
-	"github.com/mohitkumar/groot/internal/mcp"
-	"github.com/mohitkumar/groot/internal/policy"
+	"github.com/mohitkumar/attckus/internal/attack"
+	"github.com/mohitkumar/attckus/internal/audit"
+	"github.com/mohitkumar/attckus/internal/chaos"
+	"github.com/mohitkumar/attckus/internal/mcp"
+	"github.com/mohitkumar/attckus/internal/policy"
 )
 
 // Engine decides what happens to each message. Safe for concurrent use.
@@ -28,7 +28,7 @@ type Engine struct {
 	Server string // name of the upstream server, for rules and audit
 	Audit  *audit.Writer
 	Chaos  *chaos.Injector
-	// Attacks tampers with tool listings and results (groot test only).
+	// Attacks tampers with tool listings and results (attckus test only).
 	Attacks *attack.Injector
 	Warn    func(string) // operator warnings (stderr); nil discards
 	Now     func() time.Time
@@ -79,7 +79,7 @@ func (e *Engine) FromClient(session, agent string, raw []byte) Outcome {
 		if e.Policy.Mode == policy.DryRun {
 			return Outcome{Forward: raw}
 		}
-		return Outcome{Reply: mcp.ErrorResponse(nil, mcp.CodeInvalidRequest, "groot gateway does not inspect JSON-RPC batches; send messages individually")}
+		return Outcome{Reply: mcp.ErrorResponse(nil, mcp.CodeInvalidRequest, "attckus gateway does not inspect JSON-RPC batches; send messages individually")}
 	}
 	if err != nil {
 		return Outcome{Forward: raw} // let the server report the parse error
@@ -117,7 +117,7 @@ func (e *Engine) toolCall(session, agent string, msg *mcp.Message, call mcp.Tool
 	changed := e.changed[call.Name]
 	e.mu.Unlock()
 	if changed && e.Policy.ToolChecks != nil && e.Policy.ToolChecks.BlockChangedTools && !dryRun {
-		return block(audit.Denied, "tool_changed", "Blocked by groot: this tool's definition changed during the session.")
+		return block(audit.Denied, "tool_changed", "Blocked by attckus: this tool's definition changed during the session.")
 	}
 	// 4. Policy.
 	d := e.Policy.Decide(agent, e.Server, call.Name, call.Arguments)
@@ -129,10 +129,10 @@ func (e *Engine) toolCall(session, agent string, msg *mcp.Message, call mcp.Tool
 		}
 		if !dryRun {
 			decision := audit.Denied
-			text := fmt.Sprintf("Blocked by groot policy (%s): %s.", d.Rule, reason)
+			text := fmt.Sprintf("Blocked by attckus policy (%s): %s.", d.Rule, reason)
 			if d.Action == policy.Approve {
 				decision = audit.PendingApprove
-				text = fmt.Sprintf("Held by groot policy (%s): %s. A human must approve this call; do not retry it.", d.Rule, reason)
+				text = fmt.Sprintf("Held by attckus policy (%s): %s. A human must approve this call; do not retry it.", d.Rule, reason)
 			}
 			return block(decision, d.Rule, text)
 		}
@@ -286,7 +286,7 @@ func (e *Engine) filterTools(msg *mcp.Message) ([]byte, bool) {
 			modified = true
 			continue
 		}
-		// Attacks are applied after the checks, so groot's own payload is
+		// Attacks are applied after the checks, so attckus's own payload is
 		// never reported as a poisoned server.
 		if desc, typ := e.Attacks.Description(t.Name, t.Description); typ != "" {
 			var fields map[string]json.RawMessage

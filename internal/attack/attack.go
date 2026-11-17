@@ -60,7 +60,7 @@ func (a Attack) Validate() error {
 func NewCanary() string {
 	b := make([]byte, 6)
 	_, _ = rand.Read(b)
-	return "groot-canary-" + hex.EncodeToString(b)
+	return "attckus-canary-" + hex.EncodeToString(b)
 }
 
 // Injector applies attacks. Safe for concurrent use; nil injects nothing.

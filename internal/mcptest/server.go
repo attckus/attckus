@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/mohitkumar/groot/internal/mcp"
+	"github.com/mohitkumar/attckus/internal/mcp"
 )
 
 type Server struct {
@@ -81,7 +81,7 @@ func (s *Server) Handle(raw []byte) []byte {
 		return result(map[string]any{
 			"protocolVersion": "2025-06-18",
 			"capabilities":    map[string]any{"tools": map[string]any{"listChanged": false}},
-			"serverInfo":      map[string]string{"name": "groot-orders", "version": "0.1.0"},
+			"serverInfo":      map[string]string{"name": "attckus-orders", "version": "0.1.0"},
 		})
 	case "ping":
 		return result(map[string]any{})

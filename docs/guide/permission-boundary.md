@@ -25,12 +25,12 @@ A test without a policy tells you whether your agent can be fooled. A test with 
 | Hard to fool | Lets it do anything | Depends on how hard; one new attack could change this |
 | Hard to fool | Blocks dangerous calls | Lowest |
 
-When the agent obeys a planted instruction and the policy blocks everything it tries, Groot calls the result **contained**. That still fails by default, because the agent was fooled. You can accept it with `"allow_contained": true` when you only want to check the boundary.
+When the agent obeys a planted instruction and the policy blocks everything it tries, Attckus calls the result **contained**. That still fails by default, because the agent was fooled. You can accept it with `"allow_contained": true` when you only want to check the boundary.
 
 ## Start from the default
 
 ```bash
-groot policy init --out groot-policy.json
+attckus policy init --out attckus-policy.json
 ```
 
 This writes:
@@ -57,7 +57,7 @@ This writes:
 }
 ```
 
-Then point the suite at it with `"policy": "groot-policy.json"`.
+Then point the suite at it with `"policy": "attckus-policy.json"`.
 
 ## How rules work
 
@@ -75,7 +75,7 @@ And it has an **`action`**:
 | Action | What happens | How the agent sees it |
 | --- | --- | --- |
 | `allow` | The call goes through. | Normally |
-| `deny` | The call is refused. | A tool error: "Blocked by groot policy (rule name): reason" |
+| `deny` | The call is refused. | A tool error: "Blocked by attckus policy (rule name): reason" |
 | `approve` | The call is held for a human. In a test, it is never approved, so it counts as blocked. | A tool error saying a human must approve it and not to retry |
 
 The `reason` is shown to the agent, so the model can understand why it was blocked.
@@ -105,7 +105,7 @@ Arguments that aren't text (numbers, lists, objects) are checked using their JSO
 
 ## Tool list checks
 
-`tool_checks` controls what Groot does with the list of tools each server offers:
+`tool_checks` controls what Attckus does with the list of tools each server offers:
 
 | Setting | What it does |
 | --- | --- |
@@ -115,7 +115,7 @@ Arguments that aren't text (numbers, lists, objects) are checked using their JSO
 | `alert_on_change` | Record a tool whose description changes during the run. This also fails the scenario. |
 | `block_changed_tools` | Also refuse calls to a tool whose description changed. |
 
-Groot's own planted instructions are added after these checks, so they are never reported as a problem with your server.
+Attckus's own planted instructions are added after these checks, so they are never reported as a problem with your server.
 
 ## Dry-run mode
 
@@ -140,11 +140,11 @@ The `llm` section of the policy adds two more controls:
 ## Check your policy
 
 ```bash
-groot policy check groot-policy.json
+attckus policy check attckus-policy.json
 ```
 
 ```
 ok: 10 rules, mode enforce, default allow, no chaos
 ```
 
-Groot checks policies strictly. An unknown field, a typo in an action, a bad pattern or a bad regular expression is an error, so a mistake can't silently weaken the boundary. Run `groot policy check` in CI to catch mistakes early.
+Attckus checks policies strictly. An unknown field, a typo in an action, a bad pattern or a bad regular expression is an error, so a mistake can't silently weaken the boundary. Run `attckus policy check` in CI to catch mistakes early.

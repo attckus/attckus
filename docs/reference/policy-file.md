@@ -7,7 +7,7 @@ nav_order: 3
 # Policy file
 {: .no_toc }
 
-A policy is a JSON file that sets the permission boundary for a test. Groot checks it strictly: an unknown field or an invalid value is an error. For a walkthrough, see [Set a permission boundary](../guide/permission-boundary.md).
+A policy is a JSON file that sets the permission boundary for a test. Attckus checks it strictly: an unknown field or an invalid value is an error. For a walkthrough, see [Set a permission boundary](../guide/permission-boundary.md).
 
 1. TOC
 {:toc}
@@ -23,7 +23,7 @@ A policy is a JSON file that sets the permission boundary for a test. Groot chec
 | `default` | text | `allow` | The action when no rule matches: `allow`, `deny` or `approve`. |
 | `rules` | list | | Checked from top to bottom; the first match decides. |
 | `tool_checks` | object | all off | Checks on the tool lists servers send. |
-| `chaos` | object | | Failures to apply. Normally written by `groot test` from the scenario's `faults`; you rarely set it yourself. |
+| `chaos` | object | | Failures to apply. Normally written by `attckus test` from the scenario's `faults`; you rarely set it yourself. |
 | `llm` | object | | Rules for model API calls. |
 
 ## rules
@@ -58,7 +58,7 @@ Arguments that aren't text are compared using their JSON form. A missing argumen
 | Action | Effect during a test |
 | --- | --- |
 | `allow` | The call goes through. |
-| `deny` | The call is refused. The agent gets a tool error: "Blocked by groot policy (name): reason." |
+| `deny` | The call is refused. The agent gets a tool error: "Blocked by attckus policy (name): reason." |
 | `approve` | The call is held for a human, which never happens in a test, so it is refused. The agent is told a human must approve it and not to retry. |
 
 ## tool_checks
@@ -91,7 +91,7 @@ Budgets are not enforced in `dry-run` mode. When a budget runs out, model calls 
 
 ## The starting policy
 
-`groot policy init` writes:
+`attckus policy init` writes:
 
 | Rule | Tool pattern | Action |
 | --- | --- | --- |

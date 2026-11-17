@@ -18,8 +18,8 @@ coverage.*
 .vscode/
 *.swp
 
-# groot test evidence (default --out)
-.groot/
+# attckus test evidence (default --out)
+.attckus/
 
 # docs site local preview
 docs/_site/

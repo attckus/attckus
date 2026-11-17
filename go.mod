@@ -1,3 +1,3 @@
-module github.com/mohitkumar/groot
+module github.com/mohitkumar/attckus
 
 go 1.24

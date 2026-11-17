@@ -11,10 +11,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/mohitkumar/groot/internal/attack"
-	"github.com/mohitkumar/groot/internal/audit"
-	"github.com/mohitkumar/groot/internal/chaos"
-	"github.com/mohitkumar/groot/internal/policy"
+	"github.com/mohitkumar/attckus/internal/attack"
+	"github.com/mohitkumar/attckus/internal/audit"
+	"github.com/mohitkumar/attckus/internal/chaos"
+	"github.com/mohitkumar/attckus/internal/policy"
 )
 
 const testPolicy = `{
@@ -385,7 +385,7 @@ func TestAttacksOnRequests(t *testing.T) {
 	inj, _ := attack.New([]attack.Attack{
 		{Type: attack.PoisonTool, Tool: "get_order", Target: "delete_order"},
 		{Type: attack.InjectResult, Tool: "fetch"},
-	}, "groot-canary-xyz")
+	}, "attckus-canary-xyz")
 	h.proxy.Attacks = inj
 	req := `{"model":"claude-sonnet-5-5","max_tokens":100,
 	 "tools":[{"name":"get_order","description":"Look up an order.","input_schema":{}}],
@@ -394,7 +394,7 @@ func TestAttacksOnRequests(t *testing.T) {
 	  {"role":"user","content":[{"type":"tool_result","tool_use_id":"tu1","content":"page text"}]}]}`
 	h.post(t, "/v1/messages", req, nil)
 	sent := string(h.up.lastReq)
-	if strings.Count(sent, "groot-canary-xyz") != 2 || !strings.Contains(sent, "`delete_order`") || !strings.Contains(sent, `page text\n`) {
+	if strings.Count(sent, "attckus-canary-xyz") != 2 || !strings.Contains(sent, "`delete_order`") || !strings.Contains(sent, `page text\n`) {
 		t.Errorf("attacks not applied: %s", sent)
 	}
 	n := 0
@@ -414,7 +414,7 @@ func TestAttacksOnRequests(t *testing.T) {
 	  {"role":"assistant","content":null,"tool_calls":[{"id":"c1","type":"function","function":{"name":"fetch","arguments":"{}"}}]},
 	  {"role":"tool","tool_call_id":"c1","content":"page"}],
 	  "tools":[{"type":"function","function":{"name":"get_order","description":"Look up."}}]}`, nil)
-	if strings.Count(string(h2.up.lastReq), "groot-canary-xyz") != 2 {
+	if strings.Count(string(h2.up.lastReq), "attckus-canary-xyz") != 2 {
 		t.Errorf("openai attacks: %s", h2.up.lastReq)
 	}
 }

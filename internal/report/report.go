@@ -9,12 +9,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mohitkumar/groot/internal/capability"
-	"github.com/mohitkumar/groot/internal/graph"
-	"github.com/mohitkumar/groot/internal/risk"
+	"github.com/mohitkumar/attckus/internal/capability"
+	"github.com/mohitkumar/attckus/internal/graph"
+	"github.com/mohitkumar/attckus/internal/risk"
 )
 
-const toolURI = "https://github.com/mohitkumar/groot"
+const toolURI = "https://github.com/mohitkumar/attckus"
 
 // Text prints findings grouped by agent.
 func Text(w io.Writer, r *risk.Result) {
@@ -148,7 +148,7 @@ func SARIF(w io.Writer, r *risk.Result, version string) error {
 		"version": "2.1.0",
 		"runs": []any{map[string]any{
 			"tool": map[string]any{"driver": map[string]any{
-				"name": "groot", "version": version, "informationUri": toolURI, "rules": rules,
+				"name": "attckus", "version": version, "informationUri": toolURI, "rules": rules,
 			}},
 			"results": results,
 		}},

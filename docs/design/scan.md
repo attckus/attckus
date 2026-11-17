@@ -1,13 +1,13 @@
 ---
-title: groot scan
+title: attckus scan
 parent: Design
 nav_order: 2
 ---
 
-# groot scan
+# attckus scan
 
 ```
-groot scan [--format text|json|sarif|mermaid|html] [--fail-on critical|high|medium|low|none] [folder]
+attckus scan [--format text|json|sarif|mermaid|html] [--fail-on critical|high|medium|low|none] [folder]
 ```
 
 ## Use case
@@ -16,13 +16,13 @@ A platform or security engineer wants to know what each AI agent could damage if
 
 The questions they actually ask are simple. Can this agent delete a database? Can it start Lambda functions without limit? Can it delete things in AWS or Kubernetes? Can it read secrets? The answers are hard to find by hand, because permissions are spread across Kubernetes role bindings, AWS policies, roles that can take on other roles, and tool configuration files.
 
-So they export their Kubernetes and AWS permissions to files, put them in a folder with the agent's code, and run `groot scan`. For each agent they get:
+So they export their Kubernetes and AWS permissions to files, put them in a folder with the agent's code, and run `attckus scan`. For each agent they get:
 
 - **answers** to those questions, each with the exact permission that makes it true;
 - **findings**, one per kind of risk, each with the full chain that creates it, for example `support-bot → sa support/support-bot → role support-agent-role → role ops-admin`;
 - **a diagram** of the agent's reach, in the HTML report ([report.md](report.md)).
 
-The scan works **offline**: no cloud credentials and no network. In CI, `--fail-on critical` (the default) fails the build when there is a critical finding, and `--format sarif` sends findings to GitHub code scanning. `groot test` uses the same results to explain how bad an obeyed instruction is.
+The scan works **offline**: no cloud credentials and no network. In CI, `--fail-on critical` (the default) fails the build when there is a critical finding, and `--format sarif` sends findings to GitHub code scanning. `attckus test` uses the same results to explain how bad an obeyed instruction is.
 
 ## Design
 
@@ -42,7 +42,7 @@ The scan works in five steps.
 
 ### 1. Find what's in the folder
 
-Groot walks the folder. It skips folders that never hold agents (`.git`, `node_modules`, `vendor`, `.venv`, `venv`, `__pycache__`, `dist`, `build`, `.terraform`, `testdata`) and very large files. It looks for:
+Attckus walks the folder. It skips folders that never hold agents (`.git`, `node_modules`, `vendor`, `.venv`, `venv`, `__pycache__`, `dist`, `build`, `.terraform`, `testdata`) and very large files. It looks for:
 
 - **MCP configs,** recognised by file name. From each it reads every tool server: how the agent connects, which package it runs and whether the version is pinned, any password or token written straight into the file (which it hides in all output), and any AWS role the server uses (`AWS_ROLE_ARN`).
 - **Agent code,** recognised by what it imports: LangGraph, LangChain, CrewAI, AutoGen, LlamaIndex, Pydantic AI, the OpenAI Agents SDK, the Vercel AI SDK, Mastra, the provider SDKs, and MCP client libraries.
@@ -52,7 +52,7 @@ Groot walks the folder. It skips folders that never hold agents (`.git`, `node_m
 
 1. A folder with agent code (using a model provider or an agent framework, not just an MCP library) is an agent, named after the folder.
 2. An MCP config in that folder belongs to that agent. A config at the top of the repository, or in `.cursor/` or `.vscode/`, belongs to an agent called `ide-assistant` (the AI assistant in someone's editor). Any other config starts a new agent named after its folder.
-3. A Kubernetes workload is an agent if it has the annotation `groot.dev/agent: "true"`, has a name given by `groot.dev/agent-name`, or has an LLM API key in its environment. It is merged with the code agent of the same name.
+3. A Kubernetes workload is an agent if it has the annotation `attckus.dev/agent: "true"`, has a name given by `attckus.dev/agent-name`, or has an LLM API key in its environment. It is merged with the code agent of the same name.
 
 ### 3. Follow the identities
 
@@ -68,7 +68,7 @@ The map has four kinds of points: agents, tool servers, Kubernetes service accou
 
 Every service account, role and tool server carries its **permissions**. Each permission has a kind of power (see [README.md](README.md)), the permission text, where it comes from (`aws`, `k8s` or `mcp`), and two flags: does it cover production, and is it conditional?
 
-Groot then searches outward from each agent and finds the shortest path to every point it can reach. All permissions on those points become the agent's permissions, each tagged with the point that holds it.
+Attckus then searches outward from each agent and finds the shortest path to every point it can reach. All permissions on those points become the agent's permissions, each tagged with the point that holds it.
 
 ### 5. Answer the questions and raise findings
 
@@ -87,7 +87,7 @@ Groot then searches outward from each agent and finds the shortest path to every
 
 Each answer keeps up to three matching permissions as evidence, notes which identity holds the first one, and says whether any of them covers production.
 
-**Findings.** For each of the five most serious kinds of power (admin, exec, destroy, secrets, write), Groot looks at every point the agent can reach that grants it. It picks the worst one, ranked by severity and then by how many matching permissions it has. That becomes the finding. The others are listed as "also via", so you know that fixing one path doesn't close them all.
+**Findings.** For each of the five most serious kinds of power (admin, exec, destroy, secrets, write), Attckus looks at every point the agent can reach that grants it. It picks the worst one, ranked by severity and then by how many matching permissions it has. That becomes the finding. The others are listed as "also via", so you know that fixing one path doesn't close them all.
 
 | Kind | Severity |
 | --- | --- |
@@ -99,7 +99,7 @@ Each answer keeps up to three matching permissions as evidence, notes which iden
 
 **The lethal trifecta (FL110).** An agent that can read private data, also reads content an attacker can control, and can send data out is critical. One planted instruction is all it takes to make it read the data and send it away. The finding names which tool or identity supplies each of the three.
 
-**Config hygiene.** FL201 for a password or token written into a config file; FL202 for a tool server whose version isn't pinned; FL203 for a remote tool server reached over unencrypted HTTP; FL204 for a tool server Groot doesn't recognise.
+**Config hygiene.** FL201 for a password or token written into a config file; FL202 for a tool server whose version isn't pinned; FL203 for a remote tool server reached over unencrypted HTTP; FL204 for a tool server Attckus doesn't recognise.
 
 ## Data flow
 
@@ -115,7 +115,7 @@ Each answer keeps up to three matching permissions as evidence, notes which iden
 
 | Part | Code |
 | --- | --- |
-| Flags, output and exit code | `scan` in `cmd/groot/main.go`. `groot graph` calls it with format `html` and `--fail-on none`. |
+| Flags, output and exit code | `scan` in `cmd/attckus/main.go`. `attckus graph` calls it with format `html` and `--fail-on none`. |
 | Walking the folder, recognising exports | `Discover`, `sniffSnapshot` in `internal/inventory/inventory.go` |
 | Reading MCP configs, finding secrets, checking pinning | `ParseMCPConfig` in `internal/inventory/mcpconfig.go` |
 | Recognising agent code | `detectCode` in `internal/inventory/code.go` |

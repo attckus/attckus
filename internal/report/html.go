@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mohitkumar/groot/internal/risk"
-	"github.com/mohitkumar/groot/internal/suite"
+	"github.com/mohitkumar/attckus/internal/risk"
+	"github.com/mohitkumar/attckus/internal/suite"
 )
 
 //go:embed report.html.tmpl
@@ -70,7 +70,7 @@ var tmpl = template.Must(template.New("report").Funcs(template.FuncMap{
 // can reach (with a graph), and scan findings. No scripts or external assets.
 func HTML(w io.Writer, d HTMLData) error {
 	if d.Title == "" {
-		d.Title = "Groot report"
+		d.Title = "Attckus report"
 	}
 	if d.Generated.IsZero() {
 		d.Generated = time.Now().UTC()

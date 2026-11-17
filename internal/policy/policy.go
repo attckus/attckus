@@ -12,7 +12,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mohitkumar/groot/internal/chaos"
+	"github.com/mohitkumar/attckus/internal/chaos"
 )
 
 type Action string
@@ -30,7 +30,7 @@ const (
 	DryRun  Mode = "dry-run"
 )
 
-// Policy is the permission boundary groot test runs the agent inside: which
+// Policy is the permission boundary attckus test runs the agent inside: which
 // tools it may call, with which arguments, and which need approval.
 type Policy struct {
 	Version    int           `json:"version"`

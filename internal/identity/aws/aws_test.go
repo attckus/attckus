@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mohitkumar/groot/internal/capability"
+	"github.com/mohitkumar/attckus/internal/capability"
 )
 
 const fixture = `{

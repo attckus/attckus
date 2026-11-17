@@ -13,15 +13,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mohitkumar/groot/internal/attack"
-	"github.com/mohitkumar/groot/internal/audit"
-	"github.com/mohitkumar/groot/internal/chaos"
-	"github.com/mohitkumar/groot/internal/policy"
+	"github.com/mohitkumar/attckus/internal/attack"
+	"github.com/mohitkumar/attckus/internal/audit"
+	"github.com/mohitkumar/attckus/internal/chaos"
+	"github.com/mohitkumar/attckus/internal/policy"
 )
 
 // AgentHeader names the calling agent; the proxy's default agent is used
 // when it is absent.
-const AgentHeader = "X-Groot-Agent"
+const AgentHeader = "X-Attckus-Agent"
 
 const maxBody = 32 << 20
 
@@ -42,7 +42,7 @@ type Proxy struct {
 	Agent     string
 	Audit     *audit.Writer
 	Chaos     *chaos.Injector
-	Attacks   *attack.Injector // groot test only
+	Attacks   *attack.Injector // attckus test only
 	Prices    *PriceTable
 	Upstreams map[string]Upstream
 	Client    *http.Client
@@ -84,7 +84,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/v1/chat/completions", "/chat/completions":
 		provider, upstreamPath = OpenAI, "/chat/completions"
 	default:
-		writeError(w, OpenAI, http.StatusNotFound, "not_found", "groot llm gateway serves POST /v1/messages and /v1/chat/completions")
+		writeError(w, OpenAI, http.StatusNotFound, "not_found", "attckus llm gateway serves POST /v1/messages and /v1/chat/completions")
 		return
 	}
 	if r.Method != http.MethodPost {
@@ -126,7 +126,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 1. Model allowlist.
 	if !p.Policy.ModelAllowed(ref) {
 		if !dryRun {
-			refuse(http.StatusForbidden, "permission_error", audit.ModelDenied, fmt.Sprintf("model %s is not allowed by groot policy", ref))
+			refuse(http.StatusForbidden, "permission_error", audit.ModelDenied, fmt.Sprintf("model %s is not allowed by attckus policy", ref))
 			return
 		}
 		ev.Detail = "model not allowed (dry-run)"
@@ -145,7 +145,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		price, priced := p.Prices.Lookup(ref)
 		if !priced {
-			refuse(http.StatusForbidden, "permission_error", audit.BudgetExceeded, fmt.Sprintf("no price configured for %s, so the agent's budget cannot be enforced (set GROOT_PRICES_FILE)", ref))
+			refuse(http.StatusForbidden, "permission_error", audit.BudgetExceeded, fmt.Sprintf("no price configured for %s, so the agent's budget cannot be enforced (set ATTCKUS_PRICES_FILE)", ref))
 			return
 		}
 		var want int
@@ -327,10 +327,10 @@ func (p *Proxy) decider(agent, provider string, call *audit.Event) Decider {
 				ev.Decision = audit.WouldDeny
 			case d.Action == policy.Approve:
 				ev.Decision = audit.PendingApprove
-				v = Verdict{Blocked: true, Message: fmt.Sprintf("[groot] The %s tool call was held for human approval (%s): %s. Do not retry it.", tc.Name, d.Rule, reason)}
+				v = Verdict{Blocked: true, Message: fmt.Sprintf("[attckus] The %s tool call was held for human approval (%s): %s. Do not retry it.", tc.Name, d.Rule, reason)}
 			default:
 				ev.Decision = audit.Denied
-				v = Verdict{Blocked: true, Message: fmt.Sprintf("[groot] The %s tool call was blocked by policy (%s): %s.", tc.Name, d.Rule, reason)}
+				v = Verdict{Blocked: true, Message: fmt.Sprintf("[attckus] The %s tool call was blocked by policy (%s): %s.", tc.Name, d.Rule, reason)}
 			}
 		}
 		p.Audit.Write(ev)

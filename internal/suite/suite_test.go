@@ -10,14 +10,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mohitkumar/groot/internal/analyze"
-	"github.com/mohitkumar/groot/internal/attack"
-	"github.com/mohitkumar/groot/internal/audit"
+	"github.com/mohitkumar/attckus/internal/analyze"
+	"github.com/mohitkumar/attckus/internal/attack"
+	"github.com/mohitkumar/attckus/internal/audit"
 )
 
 func writeSuite(t *testing.T, body string) string {
 	t.Helper()
-	p := filepath.Join(t.TempDir(), "groot-suite.json")
+	p := filepath.Join(t.TempDir(), "attckus-suite.json")
 	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestSlug(t *testing.T) {
 }
 
 func TestEvaluate(t *testing.T) {
-	const canary = "groot-canary-1"
+	const canary = "attckus-canary-1"
 	sc := Scenario{Name: "inj", Expect: Expect{ForbiddenTools: []string{"delete_order"}}}
 	sc.Attacks = append(sc.Attacks, mustAttack())
 	events := []audit.Event{
@@ -135,7 +135,7 @@ func TestReportFormats(t *testing.T) {
 	}
 }
 
-// TestDemoSuiteEndToEnd builds groot and the demo binaries and runs the
+// TestDemoSuiteEndToEnd builds attckus and the demo binaries and runs the
 // demo suite, the same way CI does.
 func TestDemoSuiteEndToEnd(t *testing.T) {
 	if testing.Short() {
@@ -143,18 +143,18 @@ func TestDemoSuiteEndToEnd(t *testing.T) {
 	}
 	root, _ := filepath.Abs("../..")
 	bin := t.TempDir()
-	build := exec.Command("go", "build", "-o", bin+string(os.PathSeparator), "./cmd/groot", "./examples/naive-agent", "./examples/fake-mcp-server")
+	build := exec.Command("go", "build", "-o", bin+string(os.PathSeparator), "./cmd/attckus", "./examples/naive-agent", "./examples/fake-mcp-server")
 	build.Dir = root
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
 	}
-	s, err := Load(filepath.Join(root, "examples/demo-env/groot-suite.json"))
+	s, err := Load(filepath.Join(root, "examples/demo-env/attckus-suite.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	s.Command = []string{filepath.Join(bin, "naive-agent")}
 	s.MCPServers[0].Command = []string{filepath.Join(bin, "fake-mcp-server")}
-	r := &Runner{Groot: filepath.Join(bin, "groot"), OutDir: t.TempDir()}
+	r := &Runner{Attckus: filepath.Join(bin, "attckus"), OutDir: t.TempDir()}
 	rep := r.Run(context.Background(), s, nil)
 	want := map[string]string{
 		"baseline": Pass, "payments outage": Fail, "slow email provider": Fail,
@@ -224,18 +224,18 @@ func TestCompoundSuiteEndToEnd(t *testing.T) {
 	}
 	root, _ := filepath.Abs("../..")
 	bin := t.TempDir()
-	build := exec.Command("go", "build", "-o", bin+string(os.PathSeparator), "./cmd/groot", "./examples/naive-agent", "./examples/fake-mcp-server")
+	build := exec.Command("go", "build", "-o", bin+string(os.PathSeparator), "./cmd/attckus", "./examples/naive-agent", "./examples/fake-mcp-server")
 	build.Dir = root
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
 	}
-	s, err := Load(filepath.Join(root, "examples/demo-env/groot-suite-compound.json"))
+	s, err := Load(filepath.Join(root, "examples/demo-env/attckus-suite-compound.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	s.Command = []string{filepath.Join(bin, "naive-agent")}
 	s.MCPServers[0].Command = []string{filepath.Join(bin, "fake-mcp-server")}
-	rep := (&Runner{Groot: filepath.Join(bin, "groot"), OutDir: t.TempDir()}).Run(context.Background(), s, nil)
+	rep := (&Runner{Attckus: filepath.Join(bin, "attckus"), OutDir: t.TempDir()}).Run(context.Background(), s, nil)
 	if len(rep.Results) != 2 {
 		t.Fatalf("ran %d scenarios", len(rep.Results))
 	}

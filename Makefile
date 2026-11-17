@@ -21,18 +21,18 @@ fmt:
 
 demo: demo-test demo-compound demo-scan
 
-# groot test on the demo suite, with an HTML report (exits 1: three scenarios fail by design).
+# attckus test on the demo suite, with an HTML report (exits 1: three scenarios fail by design).
 demo-test: build
-	-./$(BIN)/groot test --suite examples/demo-env/groot-suite.json --out $(BIN)/test-run --html $(BIN)/report.html
+	-./$(BIN)/attckus test --suite examples/demo-env/attckus-suite.json --out $(BIN)/test-run --html $(BIN)/report.html
 
 # Attacks while tools are failing, each with a control run (exits 1 by design).
 demo-compound: build
-	-./$(BIN)/groot test --suite examples/demo-env/groot-suite-compound.json --out $(BIN)/test-compound --html $(BIN)/report-compound.html
+	-./$(BIN)/attckus test --suite examples/demo-env/attckus-suite-compound.json --out $(BIN)/test-compound --html $(BIN)/report-compound.html
 
 # What the demo agents can reach (exits 1: it has critical findings), plus the HTML reach report.
 demo-scan: build
-	-./$(BIN)/groot scan examples/demo-env
-	./$(BIN)/groot graph examples/demo-env > $(BIN)/reach.html
+	-./$(BIN)/attckus scan examples/demo-env
+	./$(BIN)/attckus graph examples/demo-env > $(BIN)/reach.html
 	@echo "reports: $(BIN)/report.html $(BIN)/report-compound.html $(BIN)/reach.html"
 
 clean:

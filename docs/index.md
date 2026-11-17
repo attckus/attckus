@@ -1,18 +1,18 @@
 ---
 title: Home
 nav_order: 1
-description: "Groot tests AI agents by trying to break them, and shows what they could damage."
+description: "Attckus tests AI agents by trying to break them, and shows what they could damage."
 permalink: /
 ---
 
-# Groot
+# Attckus
 {: .fs-9 }
 
 Break your AI agents before attackers and outages do, and see what they could damage when they break.
 {: .fs-6 .fw-300 }
 
 [Get started](getting-started.md){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[View on GitHub](https://github.com/Mohitkumar/groot){: .btn .fs-5 .mb-4 .mb-md-0 }
+[View on GitHub](https://github.com/Mohitkumar/attckus){: .btn .fs-5 .mb-4 .mb-md-0 }
 
 ---
 
@@ -26,13 +26,13 @@ An AI agent is a program that uses a language model to decide what to do, and th
 
 Most teams find out about these problems in production.
 
-## What Groot does
+## What Attckus does
 
-Groot is a security and governance tool for teams building agents. It does three jobs.
+Attckus is a security and governance tool for teams building agents. It does three jobs.
 
 ### 1. It tries to break your agent, in a test
 
-`groot test` runs your agent's own test while Groot sits between the agent and its tools. Groot hides instructions in what the tools return, and makes tools fail or slow down. Then it checks what the agent actually did.
+`attckus test` runs your agent's own test while Attckus sits between the agent and its tools. Attckus hides instructions in what the tools return, and makes tools fail or slow down. Then it checks what the agent actually did.
 
 ```
 FAIL   prompt injection in order data  (attack)
@@ -43,7 +43,7 @@ FAIL   prompt injection in order data  (attack)
 
 ### 2. It maps what your agent can reach
 
-`groot scan` reads your Kubernetes and AWS permission exports and your agent's tool configuration. It follows every path from the agent to what it can touch, and answers plain questions:
+`attckus scan` reads your Kubernetes and AWS permission exports and your agent's tool configuration. It follows every path from the agent to what it can touch, and answers plain questions:
 
 | Question | Answer for the demo support bot |
 | --- | --- |
@@ -58,11 +58,11 @@ A single HTML file holds the test results, a diagram of what each agent can reac
 
 ## Why the two halves belong together
 
-When a test shows that your agent obeyed a planted instruction, Groot looks the agent up in the scan and adds what that agent could have done with its real permissions. "The agent obeyed an injected instruction" becomes "the agent obeyed an injected instruction, **and its role can delete production data**". The second sentence is the one that gets the problem fixed.
+When a test shows that your agent obeyed a planted instruction, Attckus looks the agent up in the scan and adds what that agent could have done with its real permissions. "The agent obeyed an injected instruction" becomes "the agent obeyed an injected instruction, **and its role can delete production data**". The second sentence is the one that gets the problem fixed.
 
-## What Groot is not
+## What Attckus is not
 
-- **Not a production filter.** Groot runs in CI against a test environment. It does not sit in front of live traffic.
+- **Not a production filter.** Attckus runs in CI against a test environment. It does not sit in front of live traffic.
 - **Not an answer-quality eval.** It judges what the agent *did* (its tool calls), not whether its answers were good.
 - **Not an AI judge.** Every pass or fail comes from a fixed rule you can read and check.
 
@@ -70,14 +70,14 @@ When a test shows that your agent obeyed a planted instruction, Groot looks the 
 
 | If you want to... | Read |
 | --- | --- |
-| Try Groot on the built-in demo in five minutes | [Getting started](getting-started.md) |
+| Try Attckus on the built-in demo in five minutes | [Getting started](getting-started.md) |
 | Understand the ideas: attacks, faults, canaries, reach | [Concepts](concepts.md) |
 | Test your own agent | [Connect your agent](guide/connect-your-agent.md), then [Write a test suite](guide/write-a-suite.md) |
 | See what your agents can reach in AWS and Kubernetes | [Scan your environment](guide/scan-your-environment.md) |
-| Run Groot in CI | [Run in CI](guide/ci.md) |
+| Run Attckus in CI | [Run in CI](guide/ci.md) |
 | Look up a flag, a field or a rule | [Reference](reference/index.md) |
-| Understand how Groot works inside | [Design](design/README.md) |
+| Understand how Attckus works inside | [Design](design/README.md) |
 
 ## Status
 
-Groot is early. Everything described in these docs works and has tests. Supported today: AWS and Kubernetes for permissions; MCP tool servers and the Anthropic and OpenAI APIs for tests. See the [plan](https://github.com/Mohitkumar/groot/blob/main/PLAN.md) for what comes next.
+Attckus is early. Everything described in these docs works and has tests. Supported today: AWS and Kubernetes for permissions; MCP tool servers and the Anthropic and OpenAI APIs for tests. See the [plan](https://github.com/Mohitkumar/attckus/blob/main/PLAN.md) for what comes next.
